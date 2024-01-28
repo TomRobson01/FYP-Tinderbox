@@ -1,2 +1,5 @@
 ﻿  main.cpp
-  FYP - Tinderbox.vcxproj -> C:\Users\Tom\source\repos\FYP - Tinderbox\x64\Debug\FYP - Tinderbox.exe
+C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\FYP - Tinderbox\main.cpp(18,13): warning C4244: '=': conversion from 'float' to 'sf::Uint8', possible loss of data
+C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\FYP - Tinderbox\main.cpp(19,13): warning C4244: '=': conversion from 'float' to 'sf::Uint8', possible loss of data
+C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\FYP - Tinderbox\main.cpp(20,13): warning C4244: '=': conversion from 'float' to 'sf::Uint8', possible loss of data
+  FYP - Tinderbox.vcxproj -> C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\x64\Debug\FYP - Tinderbox.exe

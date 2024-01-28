@@ -1,0 +1,28 @@
+
+*.db
+*.obj
+*.lastbuildstate
+*.tlog
+*.log
+*.recipe
+*.db-wal
+*.db-shm
+*.ipch
+*.opendb
+.vs/FYP - Tinderbox/v16/.suo
+*.pdb
+x64/Debug/FYP - Tinderbox.pdb
+x64/Debug/FYP - Tinderbox.ilk
+x64/Debug/FYP - Tinderbox.exe
+FYP - Tinderbox/x64/Debug/vc142.pdb
+FYP - Tinderbox/x64/Debug/vc142.idb
+FYP - Tinderbox/x64/Debug/main.obj
+FYP - Tinderbox/x64/Debug/FYP - Tinderbox.tlog/link.write.1.tlog
+FYP - Tinderbox/x64/Debug/FYP - Tinderbox.tlog/link.read.1.tlog
+FYP - Tinderbox/x64/Debug/FYP - Tinderbox.tlog/link.command.1.tlog
+FYP - Tinderbox/x64/Debug/FYP - Tinderbox.tlog/FYP - Tinderbox.lastbuildstate
+FYP - Tinderbox/x64/Debug/FYP - Tinderbox.tlog/CL.write.1.tlog
+FYP - Tinderbox/x64/Debug/FYP - Tinderbox.tlog/CL.read.1.tlog
+FYP - Tinderbox/x64/Debug/FYP - Tinderbox.tlog/CL.command.1.tlog
+FYP - Tinderbox/x64/Debug/FYP - Tinderbox.log
+FYP - Tinderbox/x64/Debug/FYP - Tinderbox.exe.recipe
