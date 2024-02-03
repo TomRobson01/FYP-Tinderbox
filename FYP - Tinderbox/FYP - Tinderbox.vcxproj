@@ -20,6 +20,20 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Particle.cpp" />
+    <ClCompile Include="ParticleGas.cpp" />
+    <ClCompile Include="ParticleLiquid.cpp" />
+    <ClCompile Include="ParticlePowder.cpp" />
+    <ClCompile Include="ParticleSimulation.cpp" />
+    <ClCompile Include="ParticleSolid.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Particle.h" />
+    <ClInclude Include="ParticleGas.h" />
+    <ClInclude Include="ParticleLiquid.h" />
+    <ClInclude Include="ParticlePowder.h" />
+    <ClInclude Include="ParticleSimulation.h" />
+    <ClInclude Include="ParticleSolid.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

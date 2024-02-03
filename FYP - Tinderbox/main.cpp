@@ -1,35 +1,67 @@
 #include <iostream>
-#include <SFML/Graphics.hpp>
+//#include <windows.h>
+#include "ParticleSimulation.h"
 
 #define SCREEN_RESOLUTION 640
-#define SIMULATION_RESOLUTION 256
-#define CANVAS_SCALE_FACTOR (float)SCREEN_RESOLUTION / (float)SIMULATION_RESOLUTION
+#define CANVAS_SCALE_FACTOR ((float)SCREEN_RESOLUTION / (float)simulationResolution)
 
-// TEMP: Random colour code is only for demonstration of the canvas rendering technique
-#define RAND_FLOAT (float)(rand()) / (float)(rand())
-#define LERP(v0, v1, t) \
-	v0 + t * (v1 - v0)
-
-// TEMP: Random colour code is only for demonstration of the canvas rendering technique
-sf::Color PickRandomColour()
+namespace Painting
 {
-	sf::Color retVal = sf::Color();
+	sf::Vector2i WorldToSimulationSpaceCoords(const sf::Vector2i avInVal)
+	{
+		sf::Vector2i retval = avInVal;
+		retval.x /= CANVAS_SCALE_FACTOR;
+		retval.y /= CANVAS_SCALE_FACTOR;
+		return retval;
+	}
 
-	retVal.r = LERP(0, 255, RAND_FLOAT);
-	retVal.g = LERP(0, 255, RAND_FLOAT);
-	retVal.b = LERP(0, 255, RAND_FLOAT);
-	retVal.a = 255;
-
-	return retVal;
-}
+	PARTICLE_TYPE pCurrentlyPaintingParticle = PARTICLE_TYPE::SOLID;
+	bool bPainting = false;
+	bool bErasing = false;
+};
 
 int main()
 {
 	sf::RenderWindow wWindow(sf::VideoMode(SCREEN_RESOLUTION, SCREEN_RESOLUTION), "Tinderbox");
 	sf::Event eWinEvent;
 
+	// Setup performance metrics output text objects
+	sf::Font fFont;
+	fFont.loadFromFile("Assets\\Fonts\\Roboto.ttf");
+
+	sf::Text tFPSCount;
+	tFPSCount.setFont(fFont);
+	tFPSCount.setString("Hello world!");
+	tFPSCount.setScale(0.4f, 0.4f);
+
+	sf::Text tActiveParticlesCount;
+	tActiveParticlesCount.setFont(fFont);
+	tActiveParticlesCount.setString("Hello world!");
+	tActiveParticlesCount.setPosition(0, 16);
+	tActiveParticlesCount.setScale(0.4f, 0.4f);
+
+	sf::Text tTotalParticlesCount;
+	tTotalParticlesCount.setFont(fFont);
+	tTotalParticlesCount.setString("Hello world!");
+	tTotalParticlesCount.setPosition(0, 32);
+	tTotalParticlesCount.setScale(0.4f, 0.4f);
+	// -------------------
+
+	clock_t currentTicks;
+	clock_t deltaTicks; 
+	int ifps = 60;
+
 	while (wWindow.isOpen())
 	{
+		currentTicks = clock();
+
+		// Display important profiling information
+		const int iParticleCount = ParticleSimulation::QInstance().QParticleCount();
+		const int iactiveParticles = ParticleSimulation::QInstance().QActiveParticleCount();
+		tFPSCount.setString(std::to_string(ifps) + " FPS");
+		tActiveParticlesCount.setString(std::to_string(iactiveParticles) + " Active Particles");
+		tTotalParticlesCount.setString(std::to_string(iParticleCount) + " Total Particles");
+
 		// ---- RENDER BEGINS ----
 		wWindow.clear();
 
@@ -37,17 +69,9 @@ int main()
 		// We need an sf::Image as that provides the easiest access to an array of pixel data
 		// This single image is then scaled up to fill the screen
 		sf::Image imCanvas;
-		imCanvas.create(SIMULATION_RESOLUTION, SIMULATION_RESOLUTION, sf::Color::White);
+		imCanvas.create(simulationResolution, simulationResolution, sf::Color::Black);
 
-		// Draw each pixel of the canvas
-		for (uint16_t x = 0; x < SIMULATION_RESOLUTION; ++x)
-		{
-			for (uint16_t y = 0; y < SIMULATION_RESOLUTION; ++y)
-			{
-				// TEMP: For now, we just pick a random colour
-				imCanvas.setPixel(x, y, PickRandomColour());
-			}
-		}
+		ParticleSimulation::QInstance().Tick(imCanvas);
 
 		// Convert image to texture to be applied to a sprite
 		sf::Texture tCanvasTexture;
@@ -60,6 +84,9 @@ int main()
 
 		// Draw our canvas, and render the window
 		wWindow.draw(sCanvasSprite);
+		wWindow.draw(tFPSCount);
+		wWindow.draw(tActiveParticlesCount);
+		wWindow.draw(tTotalParticlesCount);
 		wWindow.display();
 		// ---- RENDER ENDS ----
 
@@ -67,11 +94,82 @@ int main()
 		{
 			switch (eWinEvent.type)
 			{
+				// Application events
 				case sf::Event::Closed:
 					wWindow.close();
 					break;
+
+				// Input events
+				// Toggle paint mode
+				case sf::Event::MouseButtonPressed:
+					if (eWinEvent.mouseButton.button == sf::Mouse::Button::Left && !Painting::bErasing)
+					{
+						Painting::bPainting = true;
+					}
+					if (eWinEvent.mouseButton.button == sf::Mouse::Button::Right && !Painting::bPainting)
+					{
+						Painting::bErasing = true;
+						std::cout << "Entered erase mode" << std::endl;
+					}
+					break;
+				case sf::Event::MouseButtonReleased:
+					if (eWinEvent.mouseButton.button == sf::Mouse::Button::Left && !Painting::bErasing)
+					{
+						Painting::bPainting = false;
+					}
+					if (eWinEvent.mouseButton.button == sf::Mouse::Button::Right && !Painting::bPainting)
+					{
+						Painting::bErasing = false;
+					}
+					break;
+
+				// Keyboard events
+				case sf::Event::KeyPressed:
+				{
+					switch (eWinEvent.key.code)
+					{
+						case sf::Keyboard::R:
+							ParticleSimulation::QInstance().ResetSimulation();
+							break;
+
+						// Set paint materials
+						case sf::Keyboard::Num1:
+							std::cout << "Painting with solid" << std::endl;
+							Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::SOLID;
+							break;
+						case sf::Keyboard::Num2:
+							std::cout << "Painting with powder" << std::endl;
+							Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::POWDER;
+							break;
+						case sf::Keyboard::Num3:
+							std::cout << "Painting with liquid" << std::endl;
+							Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::LIQUID;
+							break;
+						case sf::Keyboard::Num4:
+							std::cout << "Painting with gas" << std::endl;
+							Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::GAS;
+							break;
+					}
+					break;
+				}
 			}
 		}
+
+		// If in painigng mode, create particle at the current mouse position
+		if (Painting::bPainting)
+		{
+			const sf::Vector2i mousePos = Painting::WorldToSimulationSpaceCoords(sf::Mouse::getPosition(wWindow));
+			ParticleSimulation::QInstance().SpawnParticle(mousePos.x, mousePos.y, Painting::pCurrentlyPaintingParticle);
+		}
+		if (Painting::bErasing)
+		{
+			const sf::Vector2i mousePos = Painting::WorldToSimulationSpaceCoords(sf::Mouse::getPosition(wWindow));
+			ParticleSimulation::QInstance().DestroyParticle(mousePos.x, mousePos.y);
+		}
+
+		// FPS calculation
+		deltaTicks = clock() - currentTicks;
+		ifps = deltaTicks > 0 ? CLOCKS_PER_SEC / deltaTicks : 0;
 	}
 }
 

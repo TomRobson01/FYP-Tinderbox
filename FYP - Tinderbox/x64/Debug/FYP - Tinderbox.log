@@ -1,5 +1,32 @@
-﻿  main.cpp
-C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\FYP - Tinderbox\main.cpp(18,13): warning C4244: '=': conversion from 'float' to 'sf::Uint8', possible loss of data
-C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\FYP - Tinderbox\main.cpp(19,13): warning C4244: '=': conversion from 'float' to 'sf::Uint8', possible loss of data
-C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\FYP - Tinderbox\main.cpp(20,13): warning C4244: '=': conversion from 'float' to 'sf::Uint8', possible loss of data
+﻿  Particle.cpp
+C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\FYP - Tinderbox\ParticleSimulation.h(28,44): warning C4227: anachronism used: qualifiers on reference are ignored
+C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\FYP - Tinderbox\ParticleSimulation.h(42,24): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data
+  ParticleGas.cpp
+C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\FYP - Tinderbox\ParticleSimulation.h(28,44): warning C4227: anachronism used: qualifiers on reference are ignored
+C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\FYP - Tinderbox\ParticleSimulation.h(42,24): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data
+  ParticleLiquid.cpp
+C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\FYP - Tinderbox\ParticleSimulation.h(28,44): warning C4227: anachronism used: qualifiers on reference are ignored
+C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\FYP - Tinderbox\ParticleSimulation.h(42,24): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data
+  ParticlePowder.cpp
+C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\FYP - Tinderbox\ParticleSimulation.h(28,44): warning C4227: anachronism used: qualifiers on reference are ignored
+C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\FYP - Tinderbox\ParticleSimulation.h(42,24): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data
+  ParticleSimulation.cpp
+C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\FYP - Tinderbox\ParticleSimulation.h(28,44): warning C4227: anachronism used: qualifiers on reference are ignored
+C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\FYP - Tinderbox\ParticleSimulation.h(42,24): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\FYP - Tinderbox\ParticleSimulation.cpp(191,51): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data
+  ParticleSolid.cpp
+  main.cpp
+C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\FYP - Tinderbox\ParticleSimulation.h(28,44): warning C4227: anachronism used: qualifiers on reference are ignored
+C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\FYP - Tinderbox\ParticleSimulation.h(42,24): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\FYP - Tinderbox\main.cpp(13,34): warning C4244: '/=': conversion from 'float' to 'T', possible loss of data
+          with
+          [
+              T=int
+          ]
+C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\FYP - Tinderbox\main.cpp(14,34): warning C4244: '/=': conversion from 'float' to 'T', possible loss of data
+          with
+          [
+              T=int
+          ]
+  Generating Code...
   FYP - Tinderbox.vcxproj -> C:\Users\Tom\source\repos\FYP - Tinderbox\FYP-Tinderbox\x64\Debug\FYP - Tinderbox.exe
