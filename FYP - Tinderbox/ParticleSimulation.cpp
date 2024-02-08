@@ -5,6 +5,7 @@
 #include "ParticlePowder.h"
 #include "ParticleSolid.h"
 
+#include <cmath>
 #include <iostream>
 #include <vector>
 
@@ -16,6 +17,7 @@
 #define COLOR_PINK sf::Color(197, 61, 227, 255)
 #define COLOR_WATER sf::Color(90, 200, 227, 255)
 #define COLOR_SMOKE sf::Color(234, 234, 255, 255)
+#define COLOR_FIRE sf::Color(252, 127, 3, 255)
 
 /// <summary>
 /// Handles the updating and drawing of particles.
@@ -25,6 +27,9 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 {
 	std::vector<int> expiredParticleIDs;
 
+	// Reset the particle heatmap
+	//memset(particleHeatMap, 0, sizeof(particleHeatMap));
+
 	// Itterate over every particle in the simulation and update accoringly
 	for (std::pair<int, std::shared_ptr<Particle>> mapping : particleMap)
 	{
@@ -32,6 +37,8 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 		{
 			const int x = mapping.second->QX();
 			const int y = mapping.second->QY();
+			particleHeatMap[x][y] = mapping.second->QTemperature();
+
 			if (!mapping.second->QResting())
 			{
 				if (!mapping.second->QHasBeenUpdatedThisTick())
@@ -40,11 +47,36 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 					mapping.second->SetHasBeenUpdated(true);
 				}
 			}
+
+			mapping.second->HandleFireProperties();
+
+			// If the particle is on fire, we need to heat the surroundings
+			if (mapping.second->QIsOnFire())
+			{
+				auto HeatSurroundingsFunctor = [this](int aiX, int aiY, int aiTempStep)
+					{
+						if (IsPointWithinSimulation(aiX, aiY))
+						{
+							std::shared_ptr<Particle> pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]);
+							if (pParticle)
+							{
+								pParticle->IncreaseTemperature(aiTempStep);
+							}
+						}
+					};
+
+				const int iIgnitionStep = mapping.second->QTemperature() * 0.05f;	// TO-DO: Replace this with a value in the particle itself
+				HeatSurroundingsFunctor(x + 1,	y,		iIgnitionStep);
+				HeatSurroundingsFunctor(x - 1,	y,		iIgnitionStep);
+				HeatSurroundingsFunctor(x,		y + 1,	iIgnitionStep);
+				HeatSurroundingsFunctor(x,		y - 1,	iIgnitionStep);
+			}
+
 			if (mapping.second->QHasLifetimeExpired())
 			{
 				expiredParticleIDs.push_back(mapping.first);
 			}
-			arCanvas.setPixel(x, y, mapping.second->QColor());
+			arCanvas.setPixel(x, y, mapping.second->QIsOnFire() ? COLOR_FIRE : mapping.second->QColor());	// TO-DO: Move the change in colour based on fire state into Particle::QColor()
 		}
 	}
 
@@ -153,6 +185,18 @@ void ParticleSimulation::DestroyParticle(unsigned int aiX, unsigned int aiY)
 		if (pParticle)
 		{
 			pParticle->ForceExpire();
+		}
+	}
+}
+
+void ParticleSimulation::IgniteParticle(unsigned int aiX, unsigned int aiY)
+{
+	if (IsPointWithinSimulation(aiX, aiY))
+	{
+		std::shared_ptr<Particle> pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]);
+		if (pParticle && pParticle->QIgnitionTemperature() > -1)
+		{
+			pParticle->Ignite();
 		}
 	}
 }

@@ -18,6 +18,7 @@ namespace Painting
 	PARTICLE_TYPE pCurrentlyPaintingParticle = PARTICLE_TYPE::SOLID;
 	bool bPainting = false;
 	bool bErasing = false;
+	bool bIgniting = false;
 };
 
 int main()
@@ -136,18 +137,26 @@ int main()
 						case sf::Keyboard::Num1:
 							std::cout << "Painting with solid" << std::endl;
 							Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::SOLID;
+							Painting::bIgniting = false;
 							break;
 						case sf::Keyboard::Num2:
 							std::cout << "Painting with powder" << std::endl;
 							Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::POWDER;
+							Painting::bIgniting = false;
 							break;
 						case sf::Keyboard::Num3:
 							std::cout << "Painting with liquid" << std::endl;
 							Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::LIQUID;
+							Painting::bIgniting = false;
 							break;
 						case sf::Keyboard::Num4:
 							std::cout << "Painting with gas" << std::endl;
 							Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::GAS;
+							Painting::bIgniting = false;
+							break;
+						case sf::Keyboard::Num5:
+							std::cout << "Painting with fire" << std::endl;
+							Painting::bIgniting = true;
 							break;
 					}
 					break;
@@ -155,11 +164,18 @@ int main()
 			}
 		}
 
-		// If in painigng mode, create particle at the current mouse position
+		// If in painting mode, create particle at the current mouse position
 		if (Painting::bPainting)
 		{
 			const sf::Vector2i mousePos = Painting::WorldToSimulationSpaceCoords(sf::Mouse::getPosition(wWindow));
-			ParticleSimulation::QInstance().SpawnParticle(mousePos.x, mousePos.y, Painting::pCurrentlyPaintingParticle);
+			if (Painting::bIgniting)
+			{
+				ParticleSimulation::QInstance().IgniteParticle(mousePos.x, mousePos.y);
+			}
+			else
+			{
+				ParticleSimulation::QInstance().SpawnParticle(mousePos.x, mousePos.y, Painting::pCurrentlyPaintingParticle);
+			}
 		}
 		if (Painting::bErasing)
 		{
