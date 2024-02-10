@@ -1,15 +1,28 @@
 #pragma once
 #include "Particle.h"
 
+struct GasProperties
+{
+	GasProperties() = default;
+	GasProperties(int aiLifeTime, sf::Color acColor)
+	{
+		iLifeTime = aiLifeTime;
+		cColor = acColor;
+	}
+	int iLifeTime = 100;
+	sf::Color cColor;
+};
+
 class ParticleGas : public Particle
 {
 public:
-	ParticleGas(int aiID, unsigned int aiX, unsigned int aiY, sf::Color acColor)
+	ParticleGas(int aiID, unsigned int aiX, unsigned int aiY, GasProperties apProperties)
 	{
 		iParticleID = aiID;
 		x = aiX;
 		y = aiY;
-		cColor = acColor;
+		pProperties = apProperties;
+		cColor = pProperties.cColor;
 	}
 
 	void HandleMovement() override;
@@ -17,6 +30,6 @@ public:
 	bool QHasLifetimeExpired() override;
 
 private:
-	int iLifeTime = 100;
+	GasProperties pProperties;
 };
 

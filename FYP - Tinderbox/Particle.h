@@ -2,6 +2,8 @@
 
 #include <SFML/Graphics.hpp>
 
+#define FIRE_TEMP 100
+
 enum class PARTICLE_FIRE_STATE
 {
 	NONE,
@@ -9,19 +11,22 @@ enum class PARTICLE_FIRE_STATE
 	EXTINGUISHED
 };
 
+struct ParticleProperties
+{};
+
 class Particle
 {
 public:
 	Particle() = default;
-	Particle(int aiID, unsigned int aiX, unsigned int aiY, sf::Color acColor)
+	Particle(int aiID, unsigned int aiX, unsigned int aiY)
 	{
 		iParticleID = aiID;
 		x = aiX;
 		y = aiY;
-		cColor = acColor;
 	}
 
 	// Overrides
+	virtual void	SetProperties(ParticleProperties apProperties) {}
 	virtual void	HandleMovement() {}
 	virtual void	HandleFireProperties() {}
 	virtual void	Ignite() {}

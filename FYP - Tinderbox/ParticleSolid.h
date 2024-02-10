@@ -1,15 +1,33 @@
 #pragma once
 #include "Particle.h"
 
+struct SolidProperties
+{
+	SolidProperties() = default;
+	SolidProperties(int aiIgnitionTemperature, int aiBurningFuelConsumption, int aiFuel, sf::Color acColor)
+	{
+		iIgnitionTemperature = aiIgnitionTemperature;
+		iBurningFuelConsumption = aiBurningFuelConsumption;
+		iFuel = aiFuel;
+		cColor = acColor;
+	}
+
+	int iIgnitionTemperature = 100;
+	int iBurningFuelConsumption = 1;
+	int iFuel = 1000;
+	sf::Color cColor;
+};
+
 class ParticleSolid : public Particle
 {
 public:
-	ParticleSolid(int aiID, unsigned int aiX, unsigned int aiY, sf::Color acColor)
+	ParticleSolid(int aiID, unsigned int aiX, unsigned int aiY, SolidProperties apProperties)
 	{
 		iParticleID = aiID;
 		x = aiX;
 		y = aiY;
-		cColor = acColor;
+		pProperties = apProperties;
+		cColor = pProperties.cColor;
 
 		bResting = true;
 	}
@@ -22,7 +40,5 @@ public:
 	int QFuel() override;
 
 private:
-	int iIgnitionTemperature = 100;
-	int iBurningFuelConsumption = 1;
-	int iFuel = 1000;
+	SolidProperties pProperties;
 };

@@ -2,8 +2,17 @@
 //#include <windows.h>
 #include "ParticleSimulation.h"
 
-#define SCREEN_RESOLUTION 640
+#define SCREEN_RESOLUTION 900
 #define CANVAS_SCALE_FACTOR ((float)SCREEN_RESOLUTION / (float)simulationResolution)
+
+#define SCREEN_CLEAR_COLOUR sf::Color(13,14,15,255)
+
+#define DEFINE_PARTICLE_MAPPING(NUM, TYPE, MESSAGE) \
+	case NUM:\
+		std::cout << MESSAGE << std::endl; \
+		Painting::pCurrentlyPaintingParticle = TYPE; \
+		Painting::bIgniting = false; \
+		break; \
 
 namespace Painting
 {
@@ -72,7 +81,7 @@ int main()
 		// We need an sf::Image as that provides the easiest access to an array of pixel data
 		// This single image is then scaled up to fill the screen
 		sf::Image imCanvas;
-		imCanvas.create(simulationResolution, simulationResolution, sf::Color::Black);
+		imCanvas.create(simulationResolution, simulationResolution, SCREEN_CLEAR_COLOUR);
 
 		ParticleSimulation::QInstance().Tick(imCanvas);
 
@@ -136,30 +145,20 @@ int main()
 							break;
 
 						// Set paint materials
-						case sf::Keyboard::Num1:
-							std::cout << "Painting with solid" << std::endl;
-							Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::SOLID;
-							Painting::bIgniting = false;
-							break;
-						case sf::Keyboard::Num2:
-							std::cout << "Painting with powder" << std::endl;
-							Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::POWDER;
-							Painting::bIgniting = false;
-							break;
-						case sf::Keyboard::Num3:
-							std::cout << "Painting with liquid" << std::endl;
-							Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::LIQUID;
-							Painting::bIgniting = false;
-							break;
-						case sf::Keyboard::Num4:
-							std::cout << "Painting with gas" << std::endl;
-							Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::GAS;
-							Painting::bIgniting = false;
-							break;
-						case sf::Keyboard::Num5:
+						case sf::Keyboard::Num0:
 							std::cout << "Painting with fire" << std::endl;
 							Painting::bIgniting = true;
 							break;
+
+						DEFINE_PARTICLE_MAPPING(sf::Keyboard::Num1, PARTICLE_TYPE::WOOD, "Painting with wood");
+						DEFINE_PARTICLE_MAPPING(sf::Keyboard::Num2, PARTICLE_TYPE::ROCK, "Painting with rock");
+						DEFINE_PARTICLE_MAPPING(sf::Keyboard::Num3, PARTICLE_TYPE::METAL, "Painting with metal");
+						DEFINE_PARTICLE_MAPPING(sf::Keyboard::Num4, PARTICLE_TYPE::SAND, "Painting with sand");
+						DEFINE_PARTICLE_MAPPING(sf::Keyboard::Num5, PARTICLE_TYPE::COAL, "Painting with coal");
+						DEFINE_PARTICLE_MAPPING(sf::Keyboard::Num6, PARTICLE_TYPE::LEAVES, "Painting with leaves");
+						DEFINE_PARTICLE_MAPPING(sf::Keyboard::Num7, PARTICLE_TYPE::STEAM, "Painting with steam");
+						DEFINE_PARTICLE_MAPPING(sf::Keyboard::Num8, PARTICLE_TYPE::SMOKE, "Painting with smoke");
+						DEFINE_PARTICLE_MAPPING(sf::Keyboard::Num9, PARTICLE_TYPE::WATER, "Painting with water");
 					}
 					break;
 				}

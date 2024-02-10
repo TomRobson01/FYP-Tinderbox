@@ -9,15 +9,65 @@
 #include <iostream>
 #include <vector>
 
-#define CREATE_PARTICLE_PTR(T, PT) \
-	std::make_shared<T>(iUniqueParticleID, aiX, aiY, ParticleUtilities::GetColorForParticleType(PT))
+#define CREATE_PARTICLE_PTR(T, PT, PP) \
+	std::make_shared<T>(iUniqueParticleID, aiX, aiY, PP)
 
-#define COLOR_GREY sf::Color(150, 150, 150, 255)
-#define COLOR_SAND sf::Color(237, 225, 142, 255)
-#define COLOR_PINK sf::Color(197, 61, 227, 255)
-#define COLOR_WATER sf::Color(90, 200, 227, 255)
-#define COLOR_SMOKE sf::Color(234, 234, 255, 255)
-#define COLOR_FIRE sf::Color(252, 127, 3, 255)
+#define RANDOM_INT(MIN, MAX) \
+	rand() % (MAX - MIN + 1) + MIN
+
+#define RANDOM_BOOL \
+	RANDOM_INT(0, 100) > 50
+
+// Primitive Colours
+#define COLOR_GREY	sf::Color(150,	150,	150,	255)
+#define COLOR_PINK	sf::Color(197,	61,		227,	255)
+
+// Element colours
+#define COLOR_WOOD		sf::Color(82,	56,		33,		255)
+#define COLOR_METAL		sf::Color(81,	86,		89,		255)
+#define COLOR_ROCK		sf::Color(128,	134,	128,	255)
+#define COLOR_SAND		sf::Color(240,	237,	161,	255)
+#define COLOR_COAL		sf::Color(43,	41,		40,		255)
+#define COLOR_LEAVES	sf::Color(37,	59,		35,		255)
+#define COLOR_WATER		sf::Color(54,	122,	156,	255)
+#define COLOR_STEAM		sf::Color(210,	211,	212,	255)
+#define COLOR_SMOKE		sf::Color(62,	65,		66,		255)
+#define COLOR_FIRE		RANDOM_BOOL ? sf::Color(227, 102, 7, 255) : sf::Color(227, 157, 7, 255)
+
+#define IS_SOLID_CHECK(TYPE) \
+	TYPE > PARTICLE_TYPE::SOLID && TYPE < PARTICLE_TYPE::GAS
+#define IS_POWDER_CHECK(TYPE) \
+	TYPE > PARTICLE_TYPE::POWDER && TYPE < PARTICLE_TYPE::SOLID
+#define IS_LIQUID_CHECK(TYPE) \
+	TYPE > PARTICLE_TYPE::LIQUID && TYPE < PARTICLE_TYPE::COUNT
+#define IS_GAS_CHECK(TYPE) \
+	TYPE > PARTICLE_TYPE::GAS && TYPE < PARTICLE_TYPE::LIQUID
+
+std::unordered_map<PARTICLE_TYPE, SolidProperties>	solidPropertiesMap 
+{
+	//										Ignition Temp | Fuel Consumption | Fuel	  | Colour
+	{PARTICLE_TYPE::ROCK,	SolidProperties(3000,				1,				800,	COLOR_ROCK)},
+	{PARTICLE_TYPE::METAL,	SolidProperties(1000,				1,				1400,	COLOR_METAL)},
+	{PARTICLE_TYPE::WOOD,	SolidProperties(100,				1,				50,		COLOR_WOOD)}
+};
+std::unordered_map<PARTICLE_TYPE, PowderProperties> powderPropertiesMap
+{
+	//											Ticks to Rest | Ignition Temp | Fuel Consumption | Fuel | Horizontal Velocity | Vertical Veloctiy	| Colour
+	{PARTICLE_TYPE::SAND,		PowderProperties(1000,			100,			1,					100,		1,					1,					COLOR_SAND)},
+	{PARTICLE_TYPE::COAL,		PowderProperties(1000,			1000,			0,					10000,		1,					1,					COLOR_COAL)},
+	{PARTICLE_TYPE::LEAVES,		PowderProperties(1000,			5,				1,					10,			1,					1,					COLOR_LEAVES)}
+};
+std::unordered_map<PARTICLE_TYPE, LiquidProperties> liquidPropertiesMap
+{
+	//										Ticks to Rest | Extinguish Particle Type | Horizontal Velocity | Vertical Veloctiy | Colour
+	{PARTICLE_TYPE::WATER,	LiquidProperties(1000,			0,							2,						4,				COLOR_WATER)}
+};
+std::unordered_map<PARTICLE_TYPE, GasProperties>	gasPropertiesMap
+{
+	//									Lifetime | Colour
+	{PARTICLE_TYPE::STEAM,	GasProperties(100,		COLOR_STEAM)},
+	{PARTICLE_TYPE::SMOKE,	GasProperties(100,		COLOR_SMOKE)}
+};
 
 /// <summary>
 /// Handles the updating and drawing of particles.
@@ -74,7 +124,12 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 				expiredParticleIDs.push_back(mapping.first);
 			}
 
-			arCanvas.setPixel(x, y, mapping.second->QIsOnFire() ? COLOR_FIRE : mapping.second->QColor());	// TO-DO: Move the change in colour based on fire state into Particle::QColor()
+			sf::Color cCol = mapping.second->QIsOnFire() ? COLOR_FIRE : mapping.second->QColor();
+			if (IsParticleOnEdge(x, y))
+			{
+				cCol.a = 200;
+			}
+			arCanvas.setPixel(x, y, cCol);
 		}
 	}
 
@@ -97,7 +152,10 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 
 		particleMap.erase(aiExpiredID);
 
-		SpawnParticle(x,y, uiDeathParticleType);
+		if (uiDeathParticleType != PARTICLE_TYPE::NONE)
+		{
+			SpawnParticle(x, y, uiDeathParticleType);
+		}
 	}
 
 	// If we destroyed ANY particle, we need to notify the entire simulation that they may need to update their positions
@@ -175,23 +233,23 @@ void ParticleSimulation::SpawnParticle(unsigned int aiX, unsigned int aiY, PARTI
 
 		if (!pParticle && particleIDMap[aiX][aiY] == NULL_PARTICLE_ID)
 		{
-			switch (aeParticleType)
+			if (IS_GAS_CHECK(aeParticleType))
 			{
-			case PARTICLE_TYPE::GAS:
-				particleMap.insert(std::make_pair(iUniqueParticleID, CREATE_PARTICLE_PTR(ParticleGas, aeParticleType)));
-				break;
-			case PARTICLE_TYPE::LIQUID:
-				particleMap.insert(std::make_pair(iUniqueParticleID, CREATE_PARTICLE_PTR(ParticleLiquid, aeParticleType)));
-				break;
-			case PARTICLE_TYPE::POWDER:
-				particleMap.insert(std::make_pair(iUniqueParticleID, CREATE_PARTICLE_PTR(ParticlePowder, aeParticleType)));
-				break;
-			case PARTICLE_TYPE::SOLID:
-				particleMap.insert(std::make_pair(iUniqueParticleID, CREATE_PARTICLE_PTR(ParticleSolid, aeParticleType)));
-				break;
-			default:
-				return;
+				particleMap.insert(std::make_pair(iUniqueParticleID, CREATE_PARTICLE_PTR(ParticleGas, aeParticleType, gasPropertiesMap.at(aeParticleType))));
 			}
+			if (IS_LIQUID_CHECK(aeParticleType))
+			{
+				particleMap.insert(std::make_pair(iUniqueParticleID, CREATE_PARTICLE_PTR(ParticleLiquid, aeParticleType, liquidPropertiesMap.at(aeParticleType))));
+			}
+			if (IS_POWDER_CHECK(aeParticleType))
+			{
+				particleMap.insert(std::make_pair(iUniqueParticleID, CREATE_PARTICLE_PTR(ParticlePowder, aeParticleType, powderPropertiesMap.at(aeParticleType))));
+			}
+			if (IS_SOLID_CHECK(aeParticleType))
+			{
+				particleMap.insert(std::make_pair(iUniqueParticleID, CREATE_PARTICLE_PTR(ParticleSolid, aeParticleType, solidPropertiesMap.at(aeParticleType))));
+			}
+
 			particleIDMap[aiX][aiY] = iUniqueParticleID;
 			++iUniqueParticleID;
 		}
@@ -395,20 +453,22 @@ std::shared_ptr<Particle> ParticleSimulation::GetParticleFromMap(int aiID)
 }
 
 /// <summary>
-/// Utility function to grab the color associated with a particle type
+/// Helper function to detect a particle on the edge of a shape
 /// </summary>
-sf::Color const ParticleUtilities::GetColorForParticleType(PARTICLE_TYPE aeParticleType)
+bool ParticleSimulation::IsParticleOnEdge(unsigned int aiX, unsigned int aiY)
 {
-	switch (aeParticleType)
+	bool bRetVal = false;
+
+	auto NeighborCheckFunctor = [&bRetVal, this](int aiTargetX, int aiTargetY)
 	{
-	case PARTICLE_TYPE::GAS:
-		return COLOR_SMOKE;
-	case PARTICLE_TYPE::LIQUID:
-		return COLOR_WATER;
-	case PARTICLE_TYPE::POWDER:
-		return COLOR_SAND;
-	case PARTICLE_TYPE::SOLID:
-		return COLOR_GREY;
-	}
-	return COLOR_PINK;
+		if (!bRetVal)
+			bRetVal = IsPointWithinSimulation(aiTargetX, aiTargetY) && !IsSpaceOccupied(aiTargetX, aiTargetY);
+	};
+
+	NeighborCheckFunctor(aiX + 1,	aiY);
+	NeighborCheckFunctor(aiX - 1,	aiY);
+	NeighborCheckFunctor(aiX,		aiY + 1);
+	NeighborCheckFunctor(aiX,		aiY - 1);
+
+	return bRetVal;
 }

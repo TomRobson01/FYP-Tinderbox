@@ -12,15 +12,19 @@ enum class PARTICLE_TYPE : uint8_t
 {
 	NONE,
 	POWDER,
+	SAND,
+	COAL,
+	LEAVES,
 	SOLID,
+	WOOD,
+	METAL,
+	ROCK,
 	GAS,
+	STEAM,
+	SMOKE,
 	LIQUID,
+	WATER,
 	COUNT
-};
-
-namespace ParticleUtilities
-{
-	sf::Color const GetColorForParticleType(PARTICLE_TYPE aeParticleType);
 };
 
 class ParticleSimulation
@@ -50,6 +54,7 @@ public:
 	int QActiveParticleCount();
 
 protected:
+	bool IsParticleOnEdge(unsigned int aiX, unsigned int aiY);
 	bool IsPointWithinSimulation(unsigned int aiX, unsigned int aiY);
 	bool IsParticleDisplacementAllowed(int aiMovingParticle, int aiTargetParticle);
 	std::shared_ptr<Particle> GetParticleFromMap(int aiID);

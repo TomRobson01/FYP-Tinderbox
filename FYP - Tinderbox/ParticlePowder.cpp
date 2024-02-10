@@ -8,7 +8,7 @@ void ParticlePowder::HandleMovement()
 {
 	// First, attempt to move downwards
 	int itargetX = x;
-	int itargetY = y + iVelocityY;
+	int itargetY = y + pProperties.iVelocityY;
 
 	ParticleSimulation::QInstance().LineTest(QID(), x, y, itargetX, itargetY, itargetX, itargetY);
 	if (!ParticleSimulation::QInstance().RequestParticleMove(iParticleID, itargetX, itargetY))
@@ -24,8 +24,8 @@ void ParticlePowder::HandleMovement()
 			if (bCornerCheck || !ParticleSimulation::QInstance().RequestParticleMove(iParticleID, itargetX, itargetY))
 			{
 				// If all that fails, just stop
-				++iFailedMoveAttempts;
-				if (iFailedMoveAttempts >= iAttemptsBeforeRest)
+				++pProperties.iFailedMoveAttempts;
+				if (pProperties.iFailedMoveAttempts >= pProperties.iAttemptsBeforeRest)
 				{
 					bResting = true;
 				}
@@ -36,7 +36,7 @@ void ParticlePowder::HandleMovement()
 	// Assuming we didn't return out after trying each option, assign our new internal position values to our targets
 	x = itargetX;
 	y = itargetY;
-	iFailedMoveAttempts = 0;
+	pProperties.iFailedMoveAttempts = 0;
 }
 
 /// <summary>
@@ -44,16 +44,16 @@ void ParticlePowder::HandleMovement()
 /// </summary>
 void ParticlePowder::HandleFireProperties()
 {
-	if (temperature >= iIgnitionTemperature)
+	if (temperature >= pProperties.iIgnitionTemperature)
 	{
 		Ignite();
 	}
 	if (QIsOnFire())
 	{
-		temperature = iIgnitionTemperature;
+		temperature = FIRE_TEMP;
 
-		iFuel -= iBurningFuelConsumption;
-		if (iFuel <= 0)
+		pProperties.iFuel -= pProperties.iBurningFuelConsumption;
+		if (pProperties.iFuel <= 0)
 		{
 			bExpired = true;
 		}
@@ -67,7 +67,7 @@ void ParticlePowder::Ignite()
 {
 	if (!QIsOnFire())
 	{
-		temperature = iIgnitionTemperature;
+		temperature = FIRE_TEMP;
 		eFireState = PARTICLE_FIRE_STATE::BURNING;
 	}
 }
@@ -85,7 +85,7 @@ bool ParticlePowder::QHasLifetimeExpired()
 /// </summary>
 int ParticlePowder::QIgnitionTemperature()
 {
-	return iIgnitionTemperature;
+	return pProperties.iIgnitionTemperature;
 }
 
 /// <summary>
@@ -93,5 +93,5 @@ int ParticlePowder::QIgnitionTemperature()
 /// </summary>
 int ParticlePowder::QFuel()
 {
-	return iFuel;
+	return pProperties.iFuel;
 }

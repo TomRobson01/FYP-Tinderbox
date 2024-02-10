@@ -8,25 +8,25 @@ void ParticleLiquid::HandleMovement()
 {
 	// First, attempt to move downwards
 	int itargetX = x;
-	int itargetY = y + iVelocityY;
+	int itargetY = y + pProperties.iVelocityY;
 
 	ParticleSimulation::QInstance().LineTest(QID(), x, y, itargetX, itargetY, itargetX , itargetY);
 	if (!ParticleSimulation::QInstance().RequestParticleMove(iParticleID, itargetX, itargetY))
 	{
 		// If that failed, attempt to move horizontally one way
 		itargetY = y;
-		itargetX += iVelocityX;
+		itargetX += pProperties.iVelocityX;
 		ParticleSimulation::QInstance().LineTest(QID(), x, y, itargetX, itargetY, itargetX, itargetY);
 		if (!ParticleSimulation::QInstance().RequestParticleMove(iParticleID, itargetX, itargetY))
 		{
 			// If that fails, then try the other way
-			itargetX = x - iVelocityX;
+			itargetX = x - pProperties.iVelocityX;
 			ParticleSimulation::QInstance().LineTest(QID(), x, y, itargetX, itargetY, itargetX, itargetY);
 			if (!ParticleSimulation::QInstance().RequestParticleMove(iParticleID, itargetX, itargetY))
 			{
 				// If all that fails, just stop
-				++iFailedMoveAttempts;
-				if (iFailedMoveAttempts >= iAttemptsBeforeRest)
+				++pProperties.iFailedMoveAttempts;
+				if (pProperties.iFailedMoveAttempts >= pProperties.iAttemptsBeforeRest)
 				{
 					bResting = true;
 				}
@@ -37,7 +37,7 @@ void ParticleLiquid::HandleMovement()
 	// Assuming we didn't return out after trying each option, assign our new internal position values to our targets
 	x = itargetX;
 	y = itargetY;
-	iFailedMoveAttempts = 0;
+	pProperties.iFailedMoveAttempts = 0;
 }
 
 /// <summary>
@@ -47,7 +47,7 @@ void ParticleLiquid::HandleFireProperties()
 {
 	if (ParticleSimulation::QInstance().ExtinguishNeighboringParticles(x, y))
 	{
-		uiDeathParticleType = static_cast<uint8_t>(PARTICLE_TYPE::GAS);
+		pProperties.uiDeathParticleType = static_cast<uint8_t>(PARTICLE_TYPE::GAS);
 		bExpired = true;
 	}
 }
@@ -65,5 +65,5 @@ bool ParticleLiquid::QHasLifetimeExpired()
 /// </summary>
 uint8_t ParticleLiquid::QDeathParticleType()
 {
-	return uiDeathParticleType;
+	return pProperties.uiDeathParticleType;
 }

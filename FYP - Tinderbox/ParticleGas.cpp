@@ -31,10 +31,10 @@ void ParticleGas::HandleMovement()
 
 void ParticleGas::HandleFireProperties()
 {
-	--iLifeTime;
+	--pProperties.iLifeTime;
 }
 
 bool ParticleGas::QHasLifetimeExpired()
 {
-	return iLifeTime <= 0 || bExpired;
+	return pProperties.iLifeTime <= 0 || bExpired;
 }

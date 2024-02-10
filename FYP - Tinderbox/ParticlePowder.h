@@ -1,15 +1,41 @@
 #pragma once
 #include "Particle.h"
 
+struct PowderProperties
+{
+	PowderProperties() = default;
+	PowderProperties(int aiAttemptsBeforeRest, int aiIgnitionTemperature, int aiBurningFuelConsumption, int aiFuel, int aiVelocityX, int aiVelocityY, sf::Color acColor)
+	{
+		iAttemptsBeforeRest = aiAttemptsBeforeRest;
+		iFailedMoveAttempts = 0;
+		iIgnitionTemperature = aiIgnitionTemperature;
+		iBurningFuelConsumption = aiBurningFuelConsumption;
+		iFuel = aiFuel;
+		iVelocityX = aiVelocityX;
+		iVelocityY = aiVelocityY;
+		cColor = acColor;
+	}
+
+	int iAttemptsBeforeRest = 1000;
+	int iFailedMoveAttempts = 0;
+	int iIgnitionTemperature = 100;
+	int iBurningFuelConsumption = 1;
+	int iFuel = 200;
+	int iVelocityX = 1;
+	int iVelocityY = 1;
+	sf::Color cColor;
+};
+
 class ParticlePowder : public Particle
 {
 public:
-	ParticlePowder(int aiID, unsigned int aiX, unsigned int aiY, sf::Color acColor)
+	ParticlePowder(int aiID, unsigned int aiX, unsigned int aiY, PowderProperties apProperties)
 	{
 		iParticleID = aiID;
 		x = aiX;
 		y = aiY;
-		cColor = acColor;
+		pProperties = apProperties;
+		cColor = pProperties.cColor;
 	}
 
 	void HandleMovement() override;
@@ -20,12 +46,6 @@ public:
 	int QFuel() override;
 
 private:
-	int iAttemptsBeforeRest = 1000;
-	int iFailedMoveAttempts = 0;
-	int iIgnitionTemperature = 100;
-	int iBurningFuelConsumption = 1;
-	int iFuel = 200;
-	int iVelocityX = 1;
-	int iVelocityY = 1;
+	PowderProperties pProperties;
 };
 

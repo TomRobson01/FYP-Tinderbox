@@ -13,16 +13,16 @@ void ParticleSolid::HandleMovement()
 /// </summary>
 void ParticleSolid::HandleFireProperties()
 {
-	if (temperature >= iIgnitionTemperature)
+	if (temperature >= pProperties.iIgnitionTemperature)
 	{
 		Ignite();
 	}
 	if (QIsOnFire())
 	{
-		temperature = iIgnitionTemperature;
+		temperature = FIRE_TEMP;
 
-		iFuel -= iBurningFuelConsumption;
-		if (iFuel <= 0)
+		pProperties.iFuel -= pProperties.iBurningFuelConsumption;
+		if (pProperties.iFuel <= 0)
 		{
 			bExpired = true;
 		}
@@ -36,7 +36,7 @@ void ParticleSolid::Ignite()
 {
 	if (!QIsOnFire())
 	{
-		temperature = iIgnitionTemperature;
+		temperature = FIRE_TEMP;
 		eFireState = PARTICLE_FIRE_STATE::BURNING;
 	}
 }
@@ -54,7 +54,7 @@ bool ParticleSolid::QHasLifetimeExpired()
 /// </summary>
 int ParticleSolid::QIgnitionTemperature()
 {
-	return iIgnitionTemperature;
+	return pProperties.iIgnitionTemperature;
 }
 
 /// <summary>
@@ -62,5 +62,5 @@ int ParticleSolid::QIgnitionTemperature()
 /// </summary>
 int ParticleSolid::QFuel()
 {
-	return iFuel;
+	return pProperties.iFuel;
 }
