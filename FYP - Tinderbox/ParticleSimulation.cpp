@@ -5,6 +5,7 @@
 #include "ParticlePowder.h"
 #include "ParticleSolid.h"
 
+#include <cmath>
 #include <iostream>
 #include <vector>
 
@@ -16,6 +17,7 @@
 #define COLOR_PINK sf::Color(197, 61, 227, 255)
 #define COLOR_WATER sf::Color(90, 200, 227, 255)
 #define COLOR_SMOKE sf::Color(234, 234, 255, 255)
+#define COLOR_FIRE sf::Color(252, 127, 3, 255)
 
 /// <summary>
 /// Handles the updating and drawing of particles.
@@ -25,6 +27,9 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 {
 	std::vector<int> expiredParticleIDs;
 
+	// Reset the particle heatmap
+	//memset(particleHeatMap, 0, sizeof(particleHeatMap));
+
 	// Itterate over every particle in the simulation and update accoringly
 	for (std::pair<int, std::shared_ptr<Particle>> mapping : particleMap)
 	{
@@ -32,6 +37,8 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 		{
 			const int x = mapping.second->QX();
 			const int y = mapping.second->QY();
+			particleHeatMap[x][y] = mapping.second->QTemperature();
+
 			if (!mapping.second->QResting())
 			{
 				if (!mapping.second->QHasBeenUpdatedThisTick())
@@ -40,11 +47,36 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 					mapping.second->SetHasBeenUpdated(true);
 				}
 			}
+
+			mapping.second->HandleFireProperties();
+
+			// If the particle is on fire, we need to heat the surroundings
+			if (mapping.second->QIsOnFire())
+			{
+				auto HeatSurroundingsFunctor = [this](int aiX, int aiY, int aiTempStep)
+					{
+						if (IsPointWithinSimulation(aiX, aiY))
+						{
+							std::shared_ptr<Particle> pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]);
+							if (pParticle)
+							{
+								pParticle->IncreaseTemperature(aiTempStep);
+							}
+						}
+					};
+
+				const int iIgnitionStep = mapping.second->QTemperature() * 0.05f;	// TO-DO: Replace this with a value in the particle itself
+				HeatSurroundingsFunctor(x + 1,	y,		iIgnitionStep);
+				HeatSurroundingsFunctor(x - 1,	y,		iIgnitionStep);
+				HeatSurroundingsFunctor(x,		y + 1,	iIgnitionStep);
+				HeatSurroundingsFunctor(x,		y - 1,	iIgnitionStep);
+			}
+
 			if (mapping.second->QHasLifetimeExpired())
 			{
 				expiredParticleIDs.push_back(mapping.first);
 			}
-			arCanvas.setPixel(x, y, mapping.second->QColor());
+			arCanvas.setPixel(x, y, mapping.second->QIsOnFire() ? COLOR_FIRE : mapping.second->QColor());	// TO-DO: Move the change in colour based on fire state into Particle::QColor()
 		}
 	}
 
@@ -61,12 +93,13 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 	{
 		const int x = GetParticleFromMap(aiExpiredID)->QX();
 		const int y = GetParticleFromMap(aiExpiredID)->QY();
+		const PARTICLE_TYPE uiDeathParticleType = static_cast<PARTICLE_TYPE>(GetParticleFromMap(aiExpiredID)->QDeathParticleType());
+
 		particleIDMap[x][y] = NULL_PARTICLE_ID;
 
 		particleMap.erase(aiExpiredID);
 
-		// After expiring a particle, we need to let all of it's neighbors know that they now need to reassess their resting state
-		forceWokenParticles.clear();
+		SpawnParticle(x,y, uiDeathParticleType);
 	}
 
 	// If we destroyed ANY particle, we need to notify the entire simulation that they may need to update their positions
@@ -155,6 +188,55 @@ void ParticleSimulation::DestroyParticle(unsigned int aiX, unsigned int aiY)
 			pParticle->ForceExpire();
 		}
 	}
+}
+
+/// <summary>
+/// Notifys a particle in the simulation to ignite
+/// </summary>
+/// <param name="aiX">The X position of the target particle.</param>
+/// <param name="aiY">The Y position of the target particle.</param>
+void ParticleSimulation::IgniteParticle(unsigned int aiX, unsigned int aiY)
+{
+	if (IsPointWithinSimulation(aiX, aiY))
+	{
+		std::shared_ptr<Particle> pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]);
+		if (pParticle && pParticle->QIgnitionTemperature() > -1)
+		{
+			pParticle->Ignite();
+		}
+	}
+}
+
+/// <summary>
+/// Notifys a particle in the simulation to extinguish
+/// </summary>
+/// <param name="aiX">The X position of the target particle.</param>
+/// <param name="aiY">The Y position of the target particle.</param>
+/// <returns>True if the particle was extinguished, false otherwise.</returns>
+bool ParticleSimulation::ExtinguishParticle(unsigned int aiX, unsigned int aiY)
+{
+	bool bRetVal = false;
+	if (IsPointWithinSimulation(aiX, aiY))
+	{
+		std::shared_ptr<Particle> pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]);
+		if (pParticle && pParticle->QIsOnFire())
+		{
+			pParticle->Extinguish();
+			bRetVal = true;
+		}
+	}
+	return bRetVal;
+}
+
+/// <summary>
+/// Notifys all particles surrounding a point to extinguish.
+/// </summary>
+/// <param name="aiX">The X position of the particle to extinguish around.</param>
+/// <param name="aiY">The Y position of the particle to extinguish around.</param>
+/// <returns>True if any particle was extinguished, false otherwise.</returns>
+bool ParticleSimulation::ExtinguishNeighboringParticles(unsigned int aiX, unsigned int aiY)
+{
+	return ExtinguishParticle(aiX + 1, aiY) || ExtinguishParticle(aiX - 1, aiY) || ExtinguishParticle(aiX, aiY + 1) || ExtinguishParticle(aiX, aiY - 1);
 }
 
 /// <summary>

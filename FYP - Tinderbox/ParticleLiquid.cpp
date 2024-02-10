@@ -1,6 +1,9 @@
 #include "ParticleLiquid.h"
 #include "ParticleSimulation.h"
 
+/// <summary>
+/// Handles the movement logic for the particle
+/// </summary>
 void ParticleLiquid::HandleMovement()
 {
 	// First, attempt to move downwards
@@ -34,11 +37,30 @@ void ParticleLiquid::HandleMovement()
 	iFailedMoveAttempts = 0;
 }
 
+/// <summary>
+/// Handles fire propogation logic for this particle
+/// </summary>
 void ParticleLiquid::HandleFireProperties()
 {
+	if (ParticleSimulation::QInstance().ExtinguishNeighboringParticles(x, y))
+	{
+		uiDeathParticleType = static_cast<uint8_t>(PARTICLE_TYPE::GAS);
+		bExpired = true;
+	}
 }
 
+/// <summary>
+/// Checks if this particle is expired, and should be removed up at the end of this tick
+/// </summary>
 bool ParticleLiquid::QHasLifetimeExpired()
 {
 	return bExpired;
+}
+
+/// <summary>
+/// Returns the type of particle to spawn when this particle is removed
+/// </summary>
+uint8_t ParticleLiquid::QDeathParticleType()
+{
+	return uiDeathParticleType;
 }

@@ -15,9 +15,11 @@ public:
 	void HandleMovement() override;
 	void HandleFireProperties() override;
 	bool QHasLifetimeExpired() override;
+	uint8_t QDeathParticleType() override;
 
 private:
 	int iAttemptsBeforeRest = 1000;
 	int iFailedMoveAttempts = 0;
+	uint8_t uiDeathParticleType = 0;
 };
 

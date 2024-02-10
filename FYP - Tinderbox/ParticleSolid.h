@@ -16,8 +16,13 @@ public:
 
 	void HandleMovement() override;
 	void HandleFireProperties() override;
+	void Ignite() override;
 	bool QHasLifetimeExpired() override;
+	int QIgnitionTemperature() override;
+	int QFuel() override;
 
 private:
-
+	int iIgnitionTemperature = 100;
+	int iBurningFuelConsumption = 1;
+	int iFuel = 1000;
 };

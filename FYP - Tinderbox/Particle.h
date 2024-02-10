@@ -2,6 +2,13 @@
 
 #include <SFML/Graphics.hpp>
 
+enum class PARTICLE_FIRE_STATE
+{
+	NONE,
+	BURNING,
+	EXTINGUISHED
+};
+
 class Particle
 {
 public:
@@ -15,12 +22,18 @@ public:
 	}
 
 	// Overrides
-	virtual void HandleMovement() {}
-	virtual void HandleFireProperties() {}
-	virtual bool QHasLifetimeExpired() { return bExpired; }
+	virtual void	HandleMovement() {}
+	virtual void	HandleFireProperties() {}
+	virtual void	Ignite() {}
+	virtual bool	QHasLifetimeExpired() { return bExpired; }
+	virtual int		QIgnitionTemperature() { return -1; }
+	virtual int		QFuel() { return -1; }
+	virtual uint8_t QDeathParticleType() { return 0; }
 
 	// Core
+	void		Extinguish()						{ eFireState = PARTICLE_FIRE_STATE::NONE; temperature *= 0.5f; }
 	void		SetHasBeenUpdated(bool abNewVal)	{ bHasBeenUpdatedThisTick = abNewVal; }
+	void		IncreaseTemperature(int aiStep)		{ temperature += aiStep; }
 	void		ForceExpire()						{ bExpired = true; }
 	void		ForceWake()							{ bResting = false; }
 	sf::Color	QColor()							{ return cColor; }
@@ -29,6 +42,8 @@ public:
 	bool		QHasBeenUpdatedThisTick()			{ return bHasBeenUpdatedThisTick; }
 	int			QID()								{ return iParticleID; }
 	bool		QResting()							{ return bResting; }
+	int			QTemperature()						{ return temperature; }
+	bool		QIsOnFire()							{ return eFireState == PARTICLE_FIRE_STATE::BURNING; }
 
 protected:
 	int iParticleID;
@@ -37,5 +52,7 @@ protected:
 	bool bHasBeenUpdatedThisTick = false;
 	unsigned int x, y;
 	sf::Color cColor;
+	unsigned int temperature = 0;
+	PARTICLE_FIRE_STATE eFireState;
 };
 
