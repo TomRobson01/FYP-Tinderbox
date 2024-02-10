@@ -8,8 +8,9 @@
 #define NULL_PARTICLE_ID 0
 constexpr int simulationResolution = 256;
 
-enum class PARTICLE_TYPE
+enum class PARTICLE_TYPE : uint8_t
 {
+	NONE,
 	POWDER,
 	SOLID,
 	GAS,
@@ -37,6 +38,8 @@ public:
 	void SpawnParticle(unsigned int aiX, unsigned int aiY, PARTICLE_TYPE aeParticleType);
 	void DestroyParticle(unsigned int aiX, unsigned int aiY);
 	void IgniteParticle(unsigned int aiX, unsigned int aiY);
+	bool ExtinguishParticle(unsigned int aiX, unsigned int aiY);
+	bool ExtinguishNeighboringParticles(unsigned int aiX, unsigned int aiY);
 
 	void ResetSimulation();
 

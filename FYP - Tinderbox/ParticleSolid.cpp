@@ -1,10 +1,16 @@
 #include "ParticleSolid.h"
 
+/// <summary>
+/// Handles the movement logic for this particle
+/// </summary>
 void ParticleSolid::HandleMovement()
 {
 	bResting = true;
 }
 
+/// <summary>
+/// Handles the fire propogation logic for this particle
+/// </summary>
 void ParticleSolid::HandleFireProperties()
 {
 	if (temperature >= iIgnitionTemperature)
@@ -23,6 +29,9 @@ void ParticleSolid::HandleFireProperties()
 	}
 }
 
+/// <summary>
+/// Enters this particle into the burning state
+/// </summary>
 void ParticleSolid::Ignite()
 {
 	if (!QIsOnFire())
@@ -32,16 +41,25 @@ void ParticleSolid::Ignite()
 	}
 }
 
+/// <summary>
+/// Checks if this particle is expired, and should be removed up at the end of this tick
+/// </summary>
 bool ParticleSolid::QHasLifetimeExpired()
 {
 	return bExpired;
 }
 
+/// <summary>
+/// Returns the temperature at which this particle ignites
+/// </summary>
 int ParticleSolid::QIgnitionTemperature()
 {
 	return iIgnitionTemperature;
 }
 
+/// <summary>
+/// Returns the current fuel level of this particle
+/// </summary>
 int ParticleSolid::QFuel()
 {
 	return iFuel;

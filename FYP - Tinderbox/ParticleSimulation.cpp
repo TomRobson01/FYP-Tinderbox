@@ -93,12 +93,13 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 	{
 		const int x = GetParticleFromMap(aiExpiredID)->QX();
 		const int y = GetParticleFromMap(aiExpiredID)->QY();
+		const PARTICLE_TYPE uiDeathParticleType = static_cast<PARTICLE_TYPE>(GetParticleFromMap(aiExpiredID)->QDeathParticleType());
+
 		particleIDMap[x][y] = NULL_PARTICLE_ID;
 
 		particleMap.erase(aiExpiredID);
 
-		// After expiring a particle, we need to let all of it's neighbors know that they now need to reassess their resting state
-		forceWokenParticles.clear();
+		SpawnParticle(x,y, uiDeathParticleType);
 	}
 
 	// If we destroyed ANY particle, we need to notify the entire simulation that they may need to update their positions
@@ -189,6 +190,11 @@ void ParticleSimulation::DestroyParticle(unsigned int aiX, unsigned int aiY)
 	}
 }
 
+/// <summary>
+/// Notifys a particle in the simulation to ignite
+/// </summary>
+/// <param name="aiX">The X position of the target particle.</param>
+/// <param name="aiY">The Y position of the target particle.</param>
 void ParticleSimulation::IgniteParticle(unsigned int aiX, unsigned int aiY)
 {
 	if (IsPointWithinSimulation(aiX, aiY))
@@ -199,6 +205,38 @@ void ParticleSimulation::IgniteParticle(unsigned int aiX, unsigned int aiY)
 			pParticle->Ignite();
 		}
 	}
+}
+
+/// <summary>
+/// Notifys a particle in the simulation to extinguish
+/// </summary>
+/// <param name="aiX">The X position of the target particle.</param>
+/// <param name="aiY">The Y position of the target particle.</param>
+/// <returns>True if the particle was extinguished, false otherwise.</returns>
+bool ParticleSimulation::ExtinguishParticle(unsigned int aiX, unsigned int aiY)
+{
+	bool bRetVal = false;
+	if (IsPointWithinSimulation(aiX, aiY))
+	{
+		std::shared_ptr<Particle> pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]);
+		if (pParticle && pParticle->QIsOnFire())
+		{
+			pParticle->Extinguish();
+			bRetVal = true;
+		}
+	}
+	return bRetVal;
+}
+
+/// <summary>
+/// Notifys all particles surrounding a point to extinguish.
+/// </summary>
+/// <param name="aiX">The X position of the particle to extinguish around.</param>
+/// <param name="aiY">The Y position of the particle to extinguish around.</param>
+/// <returns>True if any particle was extinguished, false otherwise.</returns>
+bool ParticleSimulation::ExtinguishNeighboringParticles(unsigned int aiX, unsigned int aiY)
+{
+	return ExtinguishParticle(aiX + 1, aiY) || ExtinguishParticle(aiX - 1, aiY) || ExtinguishParticle(aiX, aiY + 1) || ExtinguishParticle(aiX, aiY - 1);
 }
 
 /// <summary>
