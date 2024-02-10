@@ -21,5 +21,7 @@ private:
 	int iAttemptsBeforeRest = 1000;
 	int iFailedMoveAttempts = 0;
 	uint8_t uiDeathParticleType = 0;
+	int iVelocityX = 2;
+	int iVelocityY = 4;
 };
 

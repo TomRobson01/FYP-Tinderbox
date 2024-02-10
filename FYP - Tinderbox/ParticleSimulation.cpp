@@ -27,9 +27,6 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 {
 	std::vector<int> expiredParticleIDs;
 
-	// Reset the particle heatmap
-	//memset(particleHeatMap, 0, sizeof(particleHeatMap));
-
 	// Itterate over every particle in the simulation and update accoringly
 	for (std::pair<int, std::shared_ptr<Particle>> mapping : particleMap)
 	{
@@ -76,6 +73,7 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 			{
 				expiredParticleIDs.push_back(mapping.first);
 			}
+
 			arCanvas.setPixel(x, y, mapping.second->QIsOnFire() ? COLOR_FIRE : mapping.second->QColor());	// TO-DO: Move the change in colour based on fire state into Particle::QColor()
 		}
 	}
@@ -123,15 +121,40 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 bool ParticleSimulation::RequestParticleMove(int aiRequesterID, unsigned int aiNewX, unsigned int aiNewY)
 {
 	bool bRequestAllowed = false;
+
 	if (IsPointWithinSimulation(aiNewX, aiNewY))
 	{
-		if (GetParticleFromMap(aiRequesterID) && !GetParticleFromMap(particleIDMap[aiNewX][aiNewY]))	// TO-DO: Right now, we're just swapping the particles, irrespective of anything blocking the way. We need to do a range check to allow for multi-pixel movements with higher velocities
+		if (GetParticleFromMap(aiRequesterID))	// TO-DO: Right now, we're just swapping the particles, irrespective of anything blocking the way. We need to do a range check to allow for multi-pixel movements with higher velocities
 		{
-			int x = GetParticleFromMap(aiRequesterID)->QX();
-			int y = GetParticleFromMap(aiRequesterID)->QY();
-			particleIDMap[aiNewX][aiNewY] = aiRequesterID;
-			particleIDMap[x][y] = NULL_PARTICLE_ID;
-			bRequestAllowed = true;
+			// Check if the slot is free
+			// If so, move the particle into a new slow
+			// If not, we need to check for any special cases
+			if (GetParticleFromMap(particleIDMap[aiNewX][aiNewY]))
+			{
+				// Special case: powders can displace water, swapping with them
+				if (IsParticleDisplacementAllowed(aiRequesterID, particleIDMap[aiNewX][aiNewY]))
+				{
+					int x = GetParticleFromMap(aiRequesterID)->QX();
+					int y = GetParticleFromMap(aiRequesterID)->QY();
+
+					const unsigned int uiDisplacedID = particleIDMap[aiNewX][aiNewY];
+
+					// Finally, swap the particles
+					particleIDMap[aiNewX][aiNewY] = aiRequesterID;
+					particleIDMap[x][y] = uiDisplacedID;
+					bRequestAllowed = true;
+				}
+			}
+			else
+			{
+				int x = GetParticleFromMap(aiRequesterID)->QX();
+				int y = GetParticleFromMap(aiRequesterID)->QY();
+
+				// Finally, move the particle
+				particleIDMap[aiNewX][aiNewY] = aiRequesterID;
+				particleIDMap[x][y] = NULL_PARTICLE_ID;
+				bRequestAllowed = true;
+			}
 		}
 	}
 	return bRequestAllowed;
@@ -180,13 +203,10 @@ void ParticleSimulation::SpawnParticle(unsigned int aiX, unsigned int aiY, PARTI
 /// </summary>
 void ParticleSimulation::DestroyParticle(unsigned int aiX, unsigned int aiY)
 {
-	if (IsPointWithinSimulation(aiX, aiY))
+	if (IsPointWithinSimulation(aiX, aiY) && IsSpaceOccupied(aiX, aiY))
 	{
 		std::shared_ptr<Particle> pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]);
-		if (pParticle)
-		{
-			pParticle->ForceExpire();
-		}
+		pParticle->ForceExpire();
 	}
 }
 
@@ -197,13 +217,10 @@ void ParticleSimulation::DestroyParticle(unsigned int aiX, unsigned int aiY)
 /// <param name="aiY">The Y position of the target particle.</param>
 void ParticleSimulation::IgniteParticle(unsigned int aiX, unsigned int aiY)
 {
-	if (IsPointWithinSimulation(aiX, aiY))
+	if (IsPointWithinSimulation(aiX, aiY) && IsSpaceOccupied(aiX, aiY))
 	{
 		std::shared_ptr<Particle> pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]);
-		if (pParticle && pParticle->QIgnitionTemperature() > -1)
-		{
-			pParticle->Ignite();
-		}
+		pParticle->Ignite();
 	}
 }
 
@@ -216,14 +233,10 @@ void ParticleSimulation::IgniteParticle(unsigned int aiX, unsigned int aiY)
 bool ParticleSimulation::ExtinguishParticle(unsigned int aiX, unsigned int aiY)
 {
 	bool bRetVal = false;
-	if (IsPointWithinSimulation(aiX, aiY))
+	if (IsPointWithinSimulation(aiX, aiY) && IsSpaceOccupied(aiX, aiY))
 	{
 		std::shared_ptr<Particle> pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]);
-		if (pParticle && pParticle->QIsOnFire())
-		{
-			pParticle->Extinguish();
-			bRetVal = true;
-		}
+		pParticle->Extinguish();
 	}
 	return bRetVal;
 }
@@ -237,6 +250,77 @@ bool ParticleSimulation::ExtinguishParticle(unsigned int aiX, unsigned int aiY)
 bool ParticleSimulation::ExtinguishNeighboringParticles(unsigned int aiX, unsigned int aiY)
 {
 	return ExtinguishParticle(aiX + 1, aiY) || ExtinguishParticle(aiX - 1, aiY) || ExtinguishParticle(aiX, aiY + 1) || ExtinguishParticle(aiX, aiY - 1);
+}
+
+/// <summary>
+/// Helper function to check if a given space is occupied.
+/// </summary>
+/// <param name="aiX">The X position of the target particle.</param>
+/// <param name="aiY">The Y position of the target particle.</param>
+bool ParticleSimulation::IsSpaceOccupied(unsigned int aiX, unsigned int aiY)
+{
+	bool bRetVal = false;
+	if (IsPointWithinSimulation(aiX, aiY))
+	{
+		std::shared_ptr<Particle> pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]);
+		if (pParticle)
+		{
+			bRetVal = true;
+		}
+	}
+	return bRetVal;
+}
+
+/// <summary>
+/// Using a DDA algorithm, trace a line between the start and end points, checking if any of the points traversed are occupied.
+/// </summary>
+/// <param name="aiRequesterID">The ID of the particle that is moving.</param>
+/// <param name="aiStartX">The start position of the line on the X axis.</param>
+/// <param name="aiStartY">The start position of the line on the Y axis.</param>
+/// <param name="aiEndX">The end position of the line on the X axis.</param>
+/// <param name="aiEndY">The end position of the line on the Y axis.</param>
+/// <param name="aiHitPointX">The out variable for where the particle can move without collision on the X axis.</param>
+/// <param name="aiHitPointY">The out variable for where the particle can move without collision on the Y axis.</param>
+/// <returns>True if the particle is able to move at all.</returns>
+/// <remarks>DDA alogirthm: https://en.wikipedia.org/wiki/Digital_differential_analyzer_(graphics_algorithm) </remarks>
+bool ParticleSimulation::LineTest(int aiRequesterID, int aiStartX, int aiStartY, int aiEndX, int aiEndY, int& aiHitPointX, int& aiHitPointY)
+{
+	bool bRetVal = true;
+
+	float fDeltaX = (aiEndX - aiStartX);
+	float fDeltaY = (aiEndY - aiStartY);
+
+	const float fStep = abs(fDeltaX) >= abs(fDeltaY) ? abs(fDeltaX) : abs(fDeltaY);
+
+	fDeltaX /= fStep;
+	fDeltaY /= fStep;
+
+	float fX = aiStartX;
+	float fY = aiStartY;
+	int i = 0;
+	for (int i = 0; i <= fStep; ++i)
+	{
+		int x = fX;
+		int y = fY;
+		if (!IsPointWithinSimulation(x, y) || (particleIDMap[x][y] != aiRequesterID && GetParticleFromMap(particleIDMap[x][y])))
+		{
+			if (IsParticleDisplacementAllowed(aiRequesterID, particleIDMap[x][y]))
+			{
+				aiHitPointX = x;
+				aiHitPointY = y;
+			}
+			break;
+		}
+
+		aiHitPointX = x;
+		aiHitPointY = y;
+		fX += fDeltaX;
+		fY += fDeltaY;
+	}
+
+	bRetVal = aiStartX != aiHitPointX && aiStartY != aiHitPointY;
+
+	return bRetVal;
 }
 
 /// <summary>
@@ -279,6 +363,21 @@ int ParticleSimulation::QActiveParticleCount()
 bool ParticleSimulation::IsPointWithinSimulation(unsigned int aiX, unsigned int aiY)
 {
 	return aiX < simulationResolution&& aiY < simulationResolution&& aiX >= 0 && aiY >= 0;
+}
+
+/// <summary>
+/// Helper function to determine any special cases where a particle can displace another/move into anothers space
+/// </summary>
+/// <param name="aiMovingParticleID">The ID for the moving particle.</param>
+/// <param name="aiTargetParticleID">The ID for the displaced particle.</param>
+bool ParticleSimulation::IsParticleDisplacementAllowed(int aiMovingParticleID, int aiTargetParticleID)
+{
+	bool bAllowDisplacement = false;
+	
+	// Special case: Powders can displace liquids
+	bAllowDisplacement = dynamic_cast<ParticleLiquid*>(GetParticleFromMap(aiTargetParticleID).get()) && dynamic_cast<ParticlePowder*>(GetParticleFromMap(aiMovingParticleID).get());
+
+	return bAllowDisplacement;
 }
 
 /// <summary>

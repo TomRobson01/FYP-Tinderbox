@@ -8,17 +8,20 @@ void ParticlePowder::HandleMovement()
 {
 	// First, attempt to move downwards
 	int itargetX = x;
-	int itargetY = y + 1;	// TO-DO: Replace 1 with a "velocity" value
+	int itargetY = y + iVelocityY;
 
+	ParticleSimulation::QInstance().LineTest(QID(), x, y, itargetX, itargetY, itargetX, itargetY);
 	if (!ParticleSimulation::QInstance().RequestParticleMove(iParticleID, itargetX, itargetY))
 	{
 		// If that failed, attempt to move diagonally one way
+		itargetY = y + 1;
 		itargetX += 1;
-		if (!ParticleSimulation::QInstance().RequestParticleMove(iParticleID, itargetX, itargetY))
+		bool bCornerCheck = ParticleSimulation::QInstance().IsSpaceOccupied(itargetX, y);
+		if (bCornerCheck || !ParticleSimulation::QInstance().RequestParticleMove(iParticleID, itargetX, itargetY))
 		{
 			// If that fails, then try the other way
-			itargetX = x - 1;
-			if (!ParticleSimulation::QInstance().RequestParticleMove(iParticleID, itargetX, itargetY))
+			itargetX = x - 1; bCornerCheck = ParticleSimulation::QInstance().IsSpaceOccupied(itargetX, y);
+			if (bCornerCheck || !ParticleSimulation::QInstance().RequestParticleMove(iParticleID, itargetX, itargetY))
 			{
 				// If all that fails, just stop
 				++iFailedMoveAttempts;

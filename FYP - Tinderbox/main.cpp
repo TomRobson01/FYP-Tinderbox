@@ -21,6 +21,8 @@ namespace Painting
 	bool bIgniting = false;
 };
 
+bool bDoOnce = false;
+
 int main()
 {
 	sf::RenderWindow wWindow(sf::VideoMode(SCREEN_RESOLUTION, SCREEN_RESOLUTION), "Tinderbox");
@@ -172,7 +174,7 @@ int main()
 			{
 				ParticleSimulation::QInstance().IgniteParticle(mousePos.x, mousePos.y);
 			}
-			else
+			else 
 			{
 				ParticleSimulation::QInstance().SpawnParticle(mousePos.x, mousePos.y, Painting::pCurrentlyPaintingParticle);
 			}
