@@ -25,5 +25,7 @@ private:
 	int iIgnitionTemperature = 100;
 	int iBurningFuelConsumption = 1;
 	int iFuel = 200;
+	int iVelocityX = 1;
+	int iVelocityY = 1;
 };
 

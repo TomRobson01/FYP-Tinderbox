@@ -8,17 +8,20 @@ void ParticleLiquid::HandleMovement()
 {
 	// First, attempt to move downwards
 	int itargetX = x;
-	int itargetY = y + 1;	// TO-DO: Replace 1 with a "velocity" value
+	int itargetY = y + iVelocityY;
 
+	ParticleSimulation::QInstance().LineTest(QID(), x, y, itargetX, itargetY, itargetX , itargetY);
 	if (!ParticleSimulation::QInstance().RequestParticleMove(iParticleID, itargetX, itargetY))
 	{
 		// If that failed, attempt to move horizontally one way
 		itargetY = y;
-		itargetX += 1;
+		itargetX += iVelocityX;
+		ParticleSimulation::QInstance().LineTest(QID(), x, y, itargetX, itargetY, itargetX, itargetY);
 		if (!ParticleSimulation::QInstance().RequestParticleMove(iParticleID, itargetX, itargetY))
 		{
 			// If that fails, then try the other way
-			itargetX = x - 1;
+			itargetX = x - iVelocityX;
+			ParticleSimulation::QInstance().LineTest(QID(), x, y, itargetX, itargetY, itargetX, itargetY);
 			if (!ParticleSimulation::QInstance().RequestParticleMove(iParticleID, itargetX, itargetY))
 			{
 				// If all that fails, just stop

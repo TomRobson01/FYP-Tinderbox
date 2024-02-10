@@ -40,6 +40,9 @@ public:
 	void IgniteParticle(unsigned int aiX, unsigned int aiY);
 	bool ExtinguishParticle(unsigned int aiX, unsigned int aiY);
 	bool ExtinguishNeighboringParticles(unsigned int aiX, unsigned int aiY);
+	bool IsSpaceOccupied(unsigned int aiX, unsigned int aiY);
+
+	bool LineTest(int aiRequesterID, int aiStartX, int aiStartY, int aiEndX, int aiEndY, int& aiHitPointX, int& aiHitPointY);
 
 	void ResetSimulation();
 
@@ -48,6 +51,7 @@ public:
 
 protected:
 	bool IsPointWithinSimulation(unsigned int aiX, unsigned int aiY);
+	bool IsParticleDisplacementAllowed(int aiMovingParticle, int aiTargetParticle);
 	std::shared_ptr<Particle> GetParticleFromMap(int aiID);
 
 private:
