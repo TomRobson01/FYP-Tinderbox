@@ -14,6 +14,16 @@
 		Painting::bIgniting = false; \
 		break; \
 
+#define DEFINE_DEBUG_STAT_TEXT(NAME, XPOS, YPOS, INITIAL_TEXT) \
+	sf::Text NAME; \
+	NAME.setFont(fFont); \
+	NAME.setString(INITIAL_TEXT); \
+	NAME.setPosition(XPOS, YPOS); \
+	NAME.setScale(0.4f, 0.4f); \
+
+#define SET_DEBUG_STAT_TEXT_VAL(NAME, VAL, TEXT) \
+	NAME.setString(std::to_string(VAL) + " " + TEXT);
+
 namespace Painting
 {
 	sf::Vector2i WorldToSimulationSpaceCoords(const sf::Vector2i avInVal)
@@ -28,6 +38,7 @@ namespace Painting
 	bool bPainting = false;
 	bool bErasing = false;
 	bool bIgniting = false;
+	int iBrushSize = 3;
 };
 
 bool bDoOnce = false;
@@ -41,26 +52,18 @@ int main()
 	sf::Font fFont;
 	fFont.loadFromFile("Assets\\Fonts\\Roboto.ttf");
 
-	sf::Text tFPSCount;
-	tFPSCount.setFont(fFont);
-	tFPSCount.setString("Hello world!");
-	tFPSCount.setScale(0.4f, 0.4f);
-
-	sf::Text tActiveParticlesCount;
-	tActiveParticlesCount.setFont(fFont);
-	tActiveParticlesCount.setString("Hello world!");
-	tActiveParticlesCount.setPosition(0, 16);
-	tActiveParticlesCount.setScale(0.4f, 0.4f);
-
-	sf::Text tTotalParticlesCount;
-	tTotalParticlesCount.setFont(fFont);
-	tTotalParticlesCount.setString("Hello world!");
-	tTotalParticlesCount.setPosition(0, 32);
-	tTotalParticlesCount.setScale(0.4f, 0.4f);
+	DEFINE_DEBUG_STAT_TEXT(FPSCount, 4, 0, "");
+	DEFINE_DEBUG_STAT_TEXT(FrameMS, 4, 16, "");
+	DEFINE_DEBUG_STAT_TEXT(TitleStats, 4, 32, "--- STATS ---");
+	DEFINE_DEBUG_STAT_TEXT(ActiveParticlesCount, 8, 48, "");
+	DEFINE_DEBUG_STAT_TEXT(TotalParticlesCount, 8, 64, "");
+	DEFINE_DEBUG_STAT_TEXT(ParticleVisitsCount, 8, 80, "");
+	DEFINE_DEBUG_STAT_TEXT(ChunkVisitsCount, 8, 96, "");
+	DEFINE_DEBUG_STAT_TEXT(BurningParticles, 8, 112, "");
 	// -------------------
 
 	clock_t currentTicks;
-	clock_t deltaTicks; 
+	clock_t deltaTicks = clock();
 	int ifps = 60;
 
 	while (wWindow.isOpen())
@@ -70,9 +73,16 @@ int main()
 		// Display important profiling information
 		const int iParticleCount = ParticleSimulation::QInstance().QParticleCount();
 		const int iactiveParticles = ParticleSimulation::QInstance().QActiveParticleCount();
-		tFPSCount.setString(std::to_string(ifps) + " FPS");
-		tActiveParticlesCount.setString(std::to_string(iactiveParticles) + " Active Particles");
-		tTotalParticlesCount.setString(std::to_string(iParticleCount) + " Total Particles");
+		const int iparticleVisits = ParticleSimulation::QInstance().QParticleVisits();
+		const int ichunkVisits = ParticleSimulation::QInstance().QChunkVisits();
+		const int iBurningParticles = ParticleSimulation::QInstance().QBurningParticles();
+		SET_DEBUG_STAT_TEXT_VAL(FPSCount,				ifps,				"FPS");
+		SET_DEBUG_STAT_TEXT_VAL(FrameMS,				deltaTicks,			"MS");
+		SET_DEBUG_STAT_TEXT_VAL(ActiveParticlesCount,	iactiveParticles,	"Active Particles");
+		SET_DEBUG_STAT_TEXT_VAL(TotalParticlesCount,	iParticleCount,		"Total Particles");
+		SET_DEBUG_STAT_TEXT_VAL(ParticleVisitsCount,	iparticleVisits,	"Pixel Visits");
+		SET_DEBUG_STAT_TEXT_VAL(ChunkVisitsCount,		ichunkVisits,		"Chunk Visits");
+		SET_DEBUG_STAT_TEXT_VAL(BurningParticles,		iBurningParticles,	"Burning Particles");
 
 		// ---- RENDER BEGINS ----
 		wWindow.clear();
@@ -96,9 +106,17 @@ int main()
 
 		// Draw our canvas, and render the window
 		wWindow.draw(sCanvasSprite);
-		wWindow.draw(tFPSCount);
-		wWindow.draw(tActiveParticlesCount);
-		wWindow.draw(tTotalParticlesCount);
+		if (DebugToggles::QInstance().bShowPerformanceStats)
+		{
+			wWindow.draw(FPSCount);
+			wWindow.draw(FrameMS);
+			wWindow.draw(TitleStats);
+			wWindow.draw(ActiveParticlesCount);
+			wWindow.draw(TotalParticlesCount);
+			wWindow.draw(ParticleVisitsCount);
+			wWindow.draw(ChunkVisitsCount);
+			wWindow.draw(BurningParticles);
+		}
 		wWindow.display();
 		// ---- RENDER ENDS ----
 
@@ -140,6 +158,26 @@ int main()
 				{
 					switch (eWinEvent.key.code)
 					{
+						case sf::Keyboard::F1:
+							DebugToggles::QInstance().bShowPerformanceStats = !DebugToggles::QInstance().bShowPerformanceStats;
+							break;
+						case sf::Keyboard::F2:
+							DebugToggles::QInstance().bShowChunkBoundaries = !DebugToggles::QInstance().bShowChunkBoundaries;
+							break;
+
+						case sf::Keyboard::F10:
+							Painting::iBrushSize = 1;
+							std::cout << "Brush size: 1\n";
+							break;
+						case sf::Keyboard::F11:
+							Painting::iBrushSize = 3;
+							std::cout << "Brush size: 3\n";
+							break;
+						case sf::Keyboard::F12:
+							Painting::iBrushSize = 5;
+							std::cout << "Brush size: 5\n";
+							break;
+
 						case sf::Keyboard::R:
 							ParticleSimulation::QInstance().ResetSimulation();
 							break;
@@ -175,7 +213,20 @@ int main()
 			}
 			else 
 			{
-				ParticleSimulation::QInstance().SpawnParticle(mousePos.x, mousePos.y, Painting::pCurrentlyPaintingParticle);
+				if (Painting::iBrushSize > 1)
+				{
+					for (int x = mousePos.x - Painting::iBrushSize; x < mousePos.x + Painting::iBrushSize; ++x)
+					{
+						for (int y = mousePos.y - Painting::iBrushSize; y < mousePos.y + Painting::iBrushSize; ++y)
+						{
+							ParticleSimulation::QInstance().SpawnParticle(x, y, Painting::pCurrentlyPaintingParticle);
+						}
+					}
+				}
+				else
+				{
+					ParticleSimulation::QInstance().SpawnParticle(mousePos.x, mousePos.y, Painting::pCurrentlyPaintingParticle);
+				}
 			}
 		}
 		if (Painting::bErasing)

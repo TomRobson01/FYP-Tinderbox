@@ -67,7 +67,7 @@ void ParticlePowder::Ignite()
 {
 	if (!QIsOnFire())
 	{
-		temperature = FIRE_TEMP;
+		temperature = QIgnitionTemperature();
 		eFireState = PARTICLE_FIRE_STATE::BURNING;
 	}
 }

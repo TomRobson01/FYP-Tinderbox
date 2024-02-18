@@ -6,7 +6,11 @@
 #include "Particle.h"
 
 #define NULL_PARTICLE_ID 0
+
 constexpr int simulationResolution = 256;
+constexpr int chunkCount = 8;
+constexpr int chunkStep = simulationResolution / chunkCount;
+
 
 enum class PARTICLE_TYPE : uint8_t
 {
@@ -27,9 +31,23 @@ enum class PARTICLE_TYPE : uint8_t
 	COUNT
 };
 
+class DebugToggles
+{
+public:
+	static DebugToggles& const QInstance()
+	{
+		static DebugToggles instance;
+		return instance;
+	};
+
+	bool bShowPerformanceStats = false;
+	bool bShowChunkBoundaries = false;
+};
+
 class ParticleSimulation
 {
 public:
+
 	static ParticleSimulation& const QInstance()
 	{
 		static ParticleSimulation instance;
@@ -52,8 +70,13 @@ public:
 
 	int QParticleCount()		{ return particleMap.size(); };
 	int QActiveParticleCount();
+	int QParticleVisits() { return iPixelsVisitted; }
+	int QChunkVisits() { return iChunksVisitted; }
+	int QBurningParticles() { return iBurningParticles; }
 
 protected:
+	void TickChunk(unsigned int auiChunkID, sf::Image& arCanvas, std::vector<int>& arExpiredIDs);
+
 	bool IsParticleOnEdge(unsigned int aiX, unsigned int aiY);
 	bool IsPointWithinSimulation(unsigned int aiX, unsigned int aiY);
 	bool IsParticleDisplacementAllowed(int aiMovingParticle, int aiTargetParticle);
@@ -68,7 +91,10 @@ private:
 
 	std::vector<int> forceWokenParticles;
 
-	int iUniqueParticleID = 1;
+	int iUniqueParticleID = 1; 
 
+	int iPixelsVisitted = 0;
+	int iChunksVisitted = 0;
+	int iBurningParticles = 0;
 };
 

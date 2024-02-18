@@ -47,7 +47,7 @@ void ParticleLiquid::HandleFireProperties()
 {
 	if (ParticleSimulation::QInstance().ExtinguishNeighboringParticles(x, y))
 	{
-		pProperties.uiDeathParticleType = static_cast<uint8_t>(PARTICLE_TYPE::GAS);
+		pProperties.uiDeathParticleType = static_cast<uint8_t>(PARTICLE_TYPE::STEAM);
 		bExpired = true;
 	}
 }
