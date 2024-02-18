@@ -33,6 +33,7 @@
 #define COLOR_STEAM		sf::Color(210,	211,	212,	255)
 #define COLOR_SMOKE		sf::Color(62,	65,		66,		255)
 #define COLOR_FIRE		RANDOM_BOOL ? sf::Color(227, 102, 7, 255) : sf::Color(227, 157, 7, 255)
+#define COLOR_CHUNK		sf::Color(53,	58,		79,		255)
 
 #define IS_SOLID_CHECK(TYPE) \
 	TYPE > PARTICLE_TYPE::SOLID && TYPE < PARTICLE_TYPE::GAS
@@ -76,61 +77,14 @@ std::unordered_map<PARTICLE_TYPE, GasProperties>	gasPropertiesMap
 void ParticleSimulation::Tick(sf::Image& arCanvas)
 {
 	std::vector<int> expiredParticleIDs;
+	iPixelsVisitted = 0;
+	iChunksVisitted = 0;
+	iBurningParticles = 0;
 
-	// Itterate over every particle in the simulation and update accoringly
-	for (std::pair<int, std::shared_ptr<Particle>> mapping : particleMap)
+	for (int i = 0; i < chunkCount; ++i)
 	{
-		if (mapping.second)
-		{
-			const int x = mapping.second->QX();
-			const int y = mapping.second->QY();
-			particleHeatMap[x][y] = mapping.second->QTemperature();
-
-			if (!mapping.second->QResting())
-			{
-				if (!mapping.second->QHasBeenUpdatedThisTick())
-				{
-					mapping.second->HandleMovement();
-					mapping.second->SetHasBeenUpdated(true);
-				}
-			}
-
-			mapping.second->HandleFireProperties();
-
-			// If the particle is on fire, we need to heat the surroundings
-			if (mapping.second->QIsOnFire())
-			{
-				auto HeatSurroundingsFunctor = [this](int aiX, int aiY, int aiTempStep)
-					{
-						if (IsPointWithinSimulation(aiX, aiY))
-						{
-							std::shared_ptr<Particle> pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]);
-							if (pParticle)
-							{
-								pParticle->IncreaseTemperature(aiTempStep);
-							}
-						}
-					};
-
-				const int iIgnitionStep = mapping.second->QTemperature() * 0.05f;	// TO-DO: Replace this with a value in the particle itself
-				HeatSurroundingsFunctor(x + 1,	y,		iIgnitionStep);
-				HeatSurroundingsFunctor(x - 1,	y,		iIgnitionStep);
-				HeatSurroundingsFunctor(x,		y + 1,	iIgnitionStep);
-				HeatSurroundingsFunctor(x,		y - 1,	iIgnitionStep);
-			}
-
-			if (mapping.second->QHasLifetimeExpired())
-			{
-				expiredParticleIDs.push_back(mapping.first);
-			}
-
-			sf::Color cCol = mapping.second->QIsOnFire() ? COLOR_FIRE : mapping.second->QColor();
-			if (IsParticleOnEdge(x, y))
-			{
-				cCol.a = 200;
-			}
-			arCanvas.setPixel(x, y, cCol);
-		}
+		TickChunk(i, arCanvas, expiredParticleIDs);
+		++iChunksVisitted;
 	}
 
 	// After a tick, itterate over the particle map, and allow them to be updated again
@@ -144,17 +98,20 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 	// map, and the memory is automatically freed.
 	for (int aiExpiredID : expiredParticleIDs)
 	{
-		const int x = GetParticleFromMap(aiExpiredID)->QX();
-		const int y = GetParticleFromMap(aiExpiredID)->QY();
-		const PARTICLE_TYPE uiDeathParticleType = static_cast<PARTICLE_TYPE>(GetParticleFromMap(aiExpiredID)->QDeathParticleType());
-
-		particleIDMap[x][y] = NULL_PARTICLE_ID;
-
-		particleMap.erase(aiExpiredID);
-
-		if (uiDeathParticleType != PARTICLE_TYPE::NONE)
+		if (GetParticleFromMap(aiExpiredID))
 		{
-			SpawnParticle(x, y, uiDeathParticleType);
+			const int x = GetParticleFromMap(aiExpiredID)->QX();
+			const int y = GetParticleFromMap(aiExpiredID)->QY();
+			const PARTICLE_TYPE uiDeathParticleType = static_cast<PARTICLE_TYPE>(GetParticleFromMap(aiExpiredID)->QDeathParticleType());
+
+			particleIDMap[x][y] = NULL_PARTICLE_ID;
+
+			particleMap.erase(aiExpiredID);
+
+			if (uiDeathParticleType != PARTICLE_TYPE::NONE)
+			{
+				SpawnParticle(x, y, uiDeathParticleType);
+			}
 		}
 	}
 
@@ -167,6 +124,83 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 		}
 	}
 	expiredParticleIDs.clear();
+}
+
+/// <summary>
+/// Itterates over a single chunked area of the simulation
+/// </summary>
+/// <param name="auiChunkID">Index of the chunk to itterate over</param>
+/// <param name="arCanvas">Canvas to draw to</param>
+/// <param name="arExpiredIDs">Expired IDs vector - used to clean up expired particles at the end of the wider simulation tick</param>
+/// <remarks>Note: this is not currently considered thread safe. If these were to be turned into threads as-is, we'd have each thread accessing the particleIDMap, and the hashmap, all the time.</remarks>
+void ParticleSimulation::TickChunk(unsigned int auiChunkID, sf::Image& arCanvas, std::vector<int>& arExpiredIDs)
+{
+	// Itterate over every particle in the simulation and update accoringly
+	for (int x = chunkStep * auiChunkID; x < (chunkStep * (auiChunkID + 1)) && x < simulationResolution; ++x)
+	{
+		for (int y = 0; y < simulationResolution; ++y)
+		{
+			auto pParticle = GetParticleFromMap(particleIDMap[x][y]);
+
+			if (pParticle)
+			{
+				const int x = pParticle->QX();
+				const int y = pParticle->QY();
+				particleHeatMap[x][y] = pParticle->QTemperature();
+
+				if (!pParticle->QResting())
+				{
+					if (!pParticle->QHasBeenUpdatedThisTick())
+					{
+						pParticle->HandleMovement();
+						pParticle->SetHasBeenUpdated(true);
+					}
+				}
+
+				pParticle->HandleFireProperties();
+
+				// If the particle is on fire, we need to heat the surroundings
+				if (pParticle->QIsOnFire())
+				{
+					++iBurningParticles;
+					auto HeatSurroundingsFunctor = [this](int aiX, int aiY, int aiTempStep)
+					{
+						if (IsPointWithinSimulation(aiX, aiY))
+						{
+							std::shared_ptr<Particle> pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]);
+							if (pParticle)
+							{
+								pParticle->IncreaseTemperature(aiTempStep);
+							}
+						}
+					};
+
+					const int iIgnitionStep = pParticle->QTemperature() * 0.05f;	// TO-DO: Replace this with a value in the particle itself
+					HeatSurroundingsFunctor(x + 1, y, iIgnitionStep);
+					HeatSurroundingsFunctor(x - 1, y, iIgnitionStep);
+					HeatSurroundingsFunctor(x, y + 1, iIgnitionStep);
+					HeatSurroundingsFunctor(x, y - 1, iIgnitionStep);
+				}
+
+				if (pParticle->QHasLifetimeExpired())
+				{
+					arExpiredIDs.push_back(particleIDMap[x][y]);
+				}
+
+				sf::Color cCol = pParticle->QIsOnFire() ? COLOR_FIRE : pParticle->QColor();
+				if (IsParticleOnEdge(x, y))
+				{
+					cCol.a = 200;
+				}
+				arCanvas.setPixel(x, y, cCol);
+			}
+			if (DebugToggles::QInstance().bShowChunkBoundaries)
+			{
+				arCanvas.setPixel(chunkStep * auiChunkID, y, COLOR_CHUNK);
+			}
+			++iPixelsVisitted;
+		}
+	}
 }
 
 /// <summary>
