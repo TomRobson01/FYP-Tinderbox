@@ -41,6 +41,7 @@ public:
 	void HandleMovement() override;
 	void HandleFireProperties() override;
 	void Ignite() override;
+	void ForceWake() override;
 	bool QHasLifetimeExpired() override;
 	int QIgnitionTemperature() override;
 	int QFuel() override;

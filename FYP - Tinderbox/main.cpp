@@ -45,6 +45,19 @@ bool bDoOnce = false;
 
 int main()
 {
+	// Help message to better explain program use
+	std::cout << "====================" << std::endl;
+	std::cout << "Welcome to Tinderbox" << std::endl;
+	std::cout << "====================" << std::endl;
+	std::cout << "\nControls ---------" << std::endl;
+	std::cout << "1-0: Element bindings" << std::endl;
+	std::cout << "F1: Show performance metrics" << std::endl;
+	std::cout << "F2: Show chunk boundaries" << std::endl;
+	std::cout << "F10: Brush size 1" << std::endl;
+	std::cout << "F11: Brush size 3" << std::endl;
+	std::cout << "F12: Brush size 5" << std::endl;
+	std::cout << "\n" << std::endl;
+
 	sf::RenderWindow wWindow(sf::VideoMode(SCREEN_RESOLUTION, SCREEN_RESOLUTION), "Tinderbox");
 	sf::Event eWinEvent;
 
@@ -116,6 +129,18 @@ int main()
 			wWindow.draw(ParticleVisitsCount);
 			wWindow.draw(ChunkVisitsCount);
 			wWindow.draw(BurningParticles);
+		}
+		if (DebugToggles::QInstance().bShowChunkBoundaries)
+		{
+			for (int x = 0; x < SCREEN_RESOLUTION; x += (SCREEN_RESOLUTION / chunkCount))
+			{
+				sf::Vertex vLine[2];
+				vLine[0].position = sf::Vector2f(x, 0);
+				vLine[0].color = sf::Color::Red;
+				vLine[1].position = sf::Vector2f(x, SCREEN_RESOLUTION);
+				vLine[1].color = sf::Color::Red;
+				wWindow.draw(vLine, 2, sf::Lines);
+			}
 		}
 		wWindow.display();
 		// ---- RENDER ENDS ----

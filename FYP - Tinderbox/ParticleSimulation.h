@@ -75,12 +75,14 @@ public:
 	int QBurningParticles() { return iBurningParticles; }
 
 protected:
-	void TickChunk(unsigned int auiChunkID, sf::Image& arCanvas, std::vector<int>& arExpiredIDs);
+	void TickChunk(std::unordered_map<int, Particle*> amParticleMap, sf::Image& arCanvas, std::vector<int>& arExpiredIDs);
 
 	bool IsParticleOnEdge(unsigned int aiX, unsigned int aiY);
 	bool IsPointWithinSimulation(unsigned int aiX, unsigned int aiY);
 	bool IsParticleDisplacementAllowed(int aiMovingParticle, int aiTargetParticle);
 	std::shared_ptr<Particle> GetParticleFromMap(int aiID);
+
+	inline int GetChunkForPosition(const int aiX);
 
 private:
 	int particleIDMap[simulationResolution][simulationResolution];
