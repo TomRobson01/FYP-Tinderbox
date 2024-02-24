@@ -70,9 +70,14 @@ int main()
 	DEFINE_DEBUG_STAT_TEXT(TitleStats, 4, 32, "--- STATS ---");
 	DEFINE_DEBUG_STAT_TEXT(ActiveParticlesCount, 8, 48, "");
 	DEFINE_DEBUG_STAT_TEXT(TotalParticlesCount, 8, 64, "");
-	DEFINE_DEBUG_STAT_TEXT(ParticleVisitsCount, 8, 80, "");
-	DEFINE_DEBUG_STAT_TEXT(ChunkVisitsCount, 8, 96, "");
-	DEFINE_DEBUG_STAT_TEXT(BurningParticles, 8, 112, "");
+	DEFINE_DEBUG_STAT_TEXT(ParticleVisitsCountTotal, 8, 80, "");
+	DEFINE_DEBUG_STAT_TEXT(ParticleVisitsCountPreChunk, 24, 96, "");
+	DEFINE_DEBUG_STAT_TEXT(ParticleVisitsCountChunkTick, 24, 112, "");
+	DEFINE_DEBUG_STAT_TEXT(ParticleVisitsCountWakeChunk, 24, 128, "");
+	DEFINE_DEBUG_STAT_TEXT(ParticleVisitsCountAllowUpdate, 24, 144, "");
+	DEFINE_DEBUG_STAT_TEXT(ParticleVisitsCountExpiredCleanup, 24, 160, "");
+	DEFINE_DEBUG_STAT_TEXT(ChunkVisitsCount, 8, 176, "");
+	DEFINE_DEBUG_STAT_TEXT(BurningParticles, 8, 192, "");
 	// -------------------
 
 	clock_t currentTicks;
@@ -86,16 +91,27 @@ int main()
 		// Display important profiling information
 		const int iParticleCount = ParticleSimulation::QInstance().QParticleCount();
 		const int iactiveParticles = ParticleSimulation::QInstance().QActiveParticleCount();
-		const int iparticleVisits = ParticleSimulation::QInstance().QParticleVisits();
+		const int iparticleVisitsTotal = ParticleSimulation::QInstance().QParticleVisitsTotal();
+		const int iparticleVisitsPreChunk = ParticleSimulation::QInstance().QParticleVisitsPreChunk();
+		const int iparticleVisitsChunkTick = ParticleSimulation::QInstance().QParticleVisitsChunkTick();
+		const int iparticleVisitsWakeChunk = ParticleSimulation::QInstance().QParticleVisitsWakeChunk();
+		const int iparticleVisitsAllowUpdates = ParticleSimulation::QInstance().QParticleVisitsAllowUpdate();
+		const int iparticleVisitsExpiredCleanup = ParticleSimulation::QInstance().QParticleVisitsExpiredCleanup();
 		const int ichunkVisits = ParticleSimulation::QInstance().QChunkVisits();
 		const int iBurningParticles = ParticleSimulation::QInstance().QBurningParticles();
-		SET_DEBUG_STAT_TEXT_VAL(FPSCount,				ifps,				"FPS");
-		SET_DEBUG_STAT_TEXT_VAL(FrameMS,				deltaTicks,			"MS");
-		SET_DEBUG_STAT_TEXT_VAL(ActiveParticlesCount,	iactiveParticles,	"Active Particles");
-		SET_DEBUG_STAT_TEXT_VAL(TotalParticlesCount,	iParticleCount,		"Total Particles");
-		SET_DEBUG_STAT_TEXT_VAL(ParticleVisitsCount,	iparticleVisits,	"Pixel Visits");
-		SET_DEBUG_STAT_TEXT_VAL(ChunkVisitsCount,		ichunkVisits,		"Chunk Visits");
-		SET_DEBUG_STAT_TEXT_VAL(BurningParticles,		iBurningParticles,	"Burning Particles");
+
+		SET_DEBUG_STAT_TEXT_VAL(FPSCount,							ifps,							"FPS");
+		SET_DEBUG_STAT_TEXT_VAL(FrameMS,							deltaTicks,						"MS");
+		SET_DEBUG_STAT_TEXT_VAL(ActiveParticlesCount,				iactiveParticles,				"Active Particles");
+		SET_DEBUG_STAT_TEXT_VAL(TotalParticlesCount,				iParticleCount,					"Total Particles");
+		SET_DEBUG_STAT_TEXT_VAL(ParticleVisitsCountTotal,			iparticleVisitsTotal,			"Pixel Visits");
+		SET_DEBUG_STAT_TEXT_VAL(ParticleVisitsCountPreChunk,		iparticleVisitsPreChunk,		"Pre-Chunk");
+		SET_DEBUG_STAT_TEXT_VAL(ParticleVisitsCountChunkTick,		iparticleVisitsChunkTick,		"Chunk Tick");
+		SET_DEBUG_STAT_TEXT_VAL(ParticleVisitsCountWakeChunk,		iparticleVisitsWakeChunk,		"Wake Chunk");
+		SET_DEBUG_STAT_TEXT_VAL(ParticleVisitsCountAllowUpdate,		iparticleVisitsAllowUpdates,	"Allow Updates");
+		SET_DEBUG_STAT_TEXT_VAL(ParticleVisitsCountExpiredCleanup,	iparticleVisitsExpiredCleanup,	"Expired Cleanup");
+		SET_DEBUG_STAT_TEXT_VAL(ChunkVisitsCount,					ichunkVisits,					"Chunk Visits");
+		SET_DEBUG_STAT_TEXT_VAL(BurningParticles,					iBurningParticles,				"Burning Particles");
 
 		// ---- RENDER BEGINS ----
 		wWindow.clear();
@@ -126,7 +142,12 @@ int main()
 			wWindow.draw(TitleStats);
 			wWindow.draw(ActiveParticlesCount);
 			wWindow.draw(TotalParticlesCount);
-			wWindow.draw(ParticleVisitsCount);
+			wWindow.draw(ParticleVisitsCountTotal);
+			wWindow.draw(ParticleVisitsCountPreChunk);
+			wWindow.draw(ParticleVisitsCountChunkTick);
+			wWindow.draw(ParticleVisitsCountWakeChunk);
+			wWindow.draw(ParticleVisitsCountAllowUpdate);
+			wWindow.draw(ParticleVisitsCountExpiredCleanup);
 			wWindow.draw(ChunkVisitsCount);
 			wWindow.draw(BurningParticles);
 		}

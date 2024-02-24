@@ -71,6 +71,17 @@ std::unordered_map<PARTICLE_TYPE, GasProperties>	gasPropertiesMap
 };
 
 bool bSleepingChunks[chunkCount];
+bool bChunksNeedUpdating[chunkCount] = { false };
+std::unordered_map<int, std::shared_ptr<Particle>> chunkParticleMaps[chunkCount];
+
+template <typename F>
+void ForEachParticle(std::unordered_map<int, std::shared_ptr<Particle>> aParticleMap, F afFunctor)
+{
+	for (std::pair<const int, std::shared_ptr<Particle>> mapping : aParticleMap)
+	{
+		afFunctor(mapping);
+	}
+}
 
 /// <summary>
 /// Handles the updating and drawing of particles.
@@ -79,24 +90,32 @@ bool bSleepingChunks[chunkCount];
 void ParticleSimulation::Tick(sf::Image& arCanvas)
 {
 	std::vector<int> expiredParticleIDs;
-	iPixelsVisitted = 0;
+	iPixelsVisitted_Total = 0;
+	iPixelsVisitted_PreChunk = 0;
+	iPixelsVisitted_AllowUpdate = 0;
+	iPixelsVisitted_ExpiredCleanup = 0;
+	iPixelsVisitted_ChunkTick = 0;
+	iPixelsVisitted_WakeChunk = 0;
 	iChunksVisitted = 0;
 	iBurningParticles = 0;
 
 	// Pre chunk tick - cache all particles we want a given chunk index to handle
-	std::unordered_map<int, Particle*> chunkParticleMaps[chunkCount];
-
 	for (std::pair<const int, std::shared_ptr<Particle>> mapping : particleMap)
 	{
 		if (mapping.second)
 		{
-			if (!mapping.second->QResting())
+			// First, find the chunk this particle belongs to
+			const int iParticleChunkID = GetChunkForPosition(mapping.second->QX());
+			if (bChunksNeedUpdating[iParticleChunkID])
 			{
-				// First, find the chunk this particle belongs to
-				const int iParticleChunkID = GetChunkForPosition(mapping.second->QX());
+				mapping.second->ForceWake();
+				//bChunksNeedUpdating[iParticleChunkID] = false;
+			}
+			if (!mapping.second->QResting() && !mapping.second->QHasLifetimeExpired())
+			{
 
 				// From there, we can construct the mapping, and 
-				chunkParticleMaps[iParticleChunkID].emplace(mapping.second->QID(), mapping.second.get());
+				chunkParticleMaps[iParticleChunkID].emplace(mapping.second->QID(), mapping.second);
 			}
 			else
 			{
@@ -118,9 +137,16 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 				}
 			}
 		}
-		++iPixelsVisitted;
+		++iPixelsVisitted_Total;	// Pre-chunk pixel visits
+		++iPixelsVisitted_PreChunk;
 	}
 	
+	// If we destroyed ANY particle, we need to notify the chunks adjacent and including the one where the deletion took place that they need to update
+	for (int i = 0; i < chunkCount; ++i)
+	{
+		bChunksNeedUpdating[i] = false;
+	}
+
 	// Tick each chunk
 	for (int i = 0; i < chunkCount; ++i)
 	{
@@ -128,17 +154,27 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 		++iChunksVisitted;
 	}
 
+	// Clear chunk smart pointer cache, releasing their refs
+	for (int i = 0; i < chunkCount; ++i)
+	{
+		for (std::pair<const int, std::shared_ptr<Particle>> mapping : chunkParticleMaps[i])
+		{
+			mapping.second.reset();
+		}
+		chunkParticleMaps[i].clear();
+	}
+
 	// After a tick, itterate over the particle map, and allow them to be updated again
 	for (std::pair<const int, std::shared_ptr<Particle>> mapping : particleMap)
 	{
 		mapping.second->SetHasBeenUpdated(false);
-		++iPixelsVisitted;
+		++iPixelsVisitted_Total;	// Wake particle map visits
+		++iPixelsVisitted_AllowUpdate;
 	}
 
 	// During the course of a tick, we check if a particle has expired it's lifetime. These particles are collected in expiredParticleIDs.
 	// As our particle unordered_map stores particle objects as a shared pointer, all we need to do is erase their mapping from the
 	// map, and the memory is automatically freed.
-	bool bChunksNeedUpdating[chunkCount] = {false};
 	for (int aiExpiredID : expiredParticleIDs)
 	{
 		if (GetParticleFromMap(aiExpiredID))
@@ -149,6 +185,7 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 
 			particleIDMap[x][y] = NULL_PARTICLE_ID;
 
+			// Remove reference from the main and chunk hashmaps
 			particleMap.erase(aiExpiredID);
 
 			if (uiDeathParticleType != PARTICLE_TYPE::NONE)
@@ -168,29 +205,8 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 				bChunksNeedUpdating[iParticleChunkID - 1] = true;
 			}
 
-			++iPixelsVisitted;
-		}
-	}
-
-	// If we destroyed ANY particle, we need to notify the chunks adjacent and including the one where the deletion took place that they need to update
-	for (int i = 0; i < chunkCount; ++i)
-	{
-		if (!bChunksNeedUpdating[i])
-		{
-			continue;
-		}
-
-		// TO-DO: Unsure why, but chunkParticleMaps is entirely empty whenever we try to access it like this... 
-		// Let's make a generic "ForEachInChunk" function, which we can pass 
-		// this behavior to as a lambda
-		for (std::pair<const int, Particle*> mapping : chunkParticleMaps[i])
-		{
-			Particle* pParticle = mapping.second;
-			if (pParticle)
-			{
-				mapping.second->ForceWake();
-			}
-			++iPixelsVisitted;
+			++iPixelsVisitted_Total;	// Clean up expired pixel visits
+			++iPixelsVisitted_ExpiredCleanup;
 		}
 	}
 	expiredParticleIDs.clear();
@@ -203,29 +219,28 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 /// <param name="arCanvas">Canvas to draw to</param>
 /// <param name="arExpiredIDs">Expired IDs vector - used to clean up expired particles at the end of the wider simulation tick</param>
 /// <remarks>Note: this is not currently considered thread safe. If these were to be turned into threads as-is, we'd have each thread accessing the particleIDMap, and the hashmap, all the time.</remarks>
-void ParticleSimulation::TickChunk(std::unordered_map<int, Particle*> amParticleMap, sf::Image& arCanvas, std::vector<int>& arExpiredIDs)
+void ParticleSimulation::TickChunk(std::unordered_map<int, std::shared_ptr<Particle>> amParticleMap, sf::Image& arCanvas, std::vector<int>& arExpiredIDs)
 {
-	for (std::pair<const int, Particle*> mapping : amParticleMap)
+	for (std::pair<const int, std::shared_ptr<Particle>> mapping : amParticleMap)
 	{
-		Particle* pParticle = mapping.second;
-		if (pParticle)
+		if (mapping.second)
 		{
-			const int x = pParticle->QX();
-			const int y = pParticle->QY();
+			const int x = mapping.second->QX();
+			const int y = mapping.second->QY();
 
-			if (!pParticle->QResting())
+			if (!mapping.second->QResting())
 			{
-				if (!pParticle->QHasBeenUpdatedThisTick())
+				if (!mapping.second->QHasBeenUpdatedThisTick())
 				{
-					pParticle->HandleMovement();
-					pParticle->SetHasBeenUpdated(true);
+					mapping.second->HandleMovement();
+					mapping.second->SetHasBeenUpdated(true);
 				}
 			}
 
-			pParticle->HandleFireProperties();
+			mapping.second->HandleFireProperties();
 
 			// If the particle is on fire, we need to heat the surroundings
-			if (pParticle->QIsOnFire())
+			if (mapping.second->QIsOnFire())
 			{
 				++iBurningParticles;
 				// TO-DO: Not thread safe, improve safety
@@ -233,7 +248,7 @@ void ParticleSimulation::TickChunk(std::unordered_map<int, Particle*> amParticle
 					{
 						if (IsPointWithinSimulation(aiX, aiY))
 						{
-							std::shared_ptr<Particle> pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]);
+							Particle* pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]).get();
 							if (pParticle)
 							{
 								pParticle->IncreaseTemperature(aiTempStep);
@@ -241,26 +256,28 @@ void ParticleSimulation::TickChunk(std::unordered_map<int, Particle*> amParticle
 						}
 					};
 
-				const int iIgnitionStep = pParticle->QTemperature() * 0.05f;	// TO-DO: Replace this with a value in the particle itself
+				const int iIgnitionStep = mapping.second->QTemperature() * 0.05f;	// TO-DO: Replace this with a value in the particle itself
 				HeatSurroundingsFunctor(x + 1, y, iIgnitionStep);
 				HeatSurroundingsFunctor(x - 1, y, iIgnitionStep);
 				HeatSurroundingsFunctor(x, y + 1, iIgnitionStep);
 				HeatSurroundingsFunctor(x, y - 1, iIgnitionStep);
 			}
 
-			if (pParticle->QHasLifetimeExpired())
-			{
-				arExpiredIDs.push_back(mapping.first);
-			}
-
-			sf::Color cCol = pParticle->QIsOnFire() ? COLOR_FIRE : pParticle->QColor();
+			sf::Color cCol = mapping.second->QIsOnFire() ? COLOR_FIRE : mapping.second->QColor();
 			if (IsParticleOnEdge(x, y))
 			{
 				cCol.a = 200;
 			}
-			arCanvas.setPixel(x, y, cCol);
+			arCanvas.setPixel(x, y, cCol); 
+			
+			if (mapping.second->QHasLifetimeExpired())
+			{
+				arExpiredIDs.push_back(mapping.first);
+				mapping.second.reset();
+			}
 		}
-		++iPixelsVisitted;
+		++iPixelsVisitted_Total; // Chunk tick pixel visits
+		++iPixelsVisitted_ChunkTick;
 	}
 }
 
@@ -324,7 +341,7 @@ void ParticleSimulation::SpawnParticle(unsigned int aiX, unsigned int aiY, PARTI
 {
 	if (IsPointWithinSimulation(aiX, aiY))
 	{
-		std::shared_ptr<Particle> pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]);
+		Particle* pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]).get();
 
 		if (!pParticle && particleIDMap[aiX][aiY] == NULL_PARTICLE_ID)
 		{
@@ -358,8 +375,7 @@ void ParticleSimulation::DestroyParticle(unsigned int aiX, unsigned int aiY)
 {
 	if (IsPointWithinSimulation(aiX, aiY) && IsSpaceOccupied(aiX, aiY))
 	{
-		std::shared_ptr<Particle> pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]);
-		pParticle->ForceExpire();
+		GetParticleFromMap(particleIDMap[aiX][aiY])->ForceExpire();
 	}
 }
 
@@ -372,8 +388,7 @@ void ParticleSimulation::IgniteParticle(unsigned int aiX, unsigned int aiY)
 {
 	if (IsPointWithinSimulation(aiX, aiY) && IsSpaceOccupied(aiX, aiY))
 	{
-		std::shared_ptr<Particle> pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]);
-		pParticle->Ignite();
+		GetParticleFromMap(particleIDMap[aiX][aiY])->Ignite();
 	}
 }
 
@@ -388,8 +403,7 @@ bool ParticleSimulation::ExtinguishParticle(unsigned int aiX, unsigned int aiY)
 	bool bRetVal = false;
 	if (IsPointWithinSimulation(aiX, aiY) && IsSpaceOccupied(aiX, aiY))
 	{
-		std::shared_ptr<Particle> pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]);
-		pParticle->Extinguish();
+		GetParticleFromMap(particleIDMap[aiX][aiY])->Extinguish();
 	}
 	return bRetVal;
 }
@@ -415,8 +429,7 @@ bool ParticleSimulation::IsSpaceOccupied(unsigned int aiX, unsigned int aiY)
 	bool bRetVal = false;
 	if (IsPointWithinSimulation(aiX, aiY))
 	{
-		std::shared_ptr<Particle> pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]);
-		if (pParticle)
+		if (GetParticleFromMap(particleIDMap[aiX][aiY]).get())
 		{
 			bRetVal = true;
 		}
