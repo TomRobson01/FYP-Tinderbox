@@ -1,5 +1,5 @@
 #include <iostream>
-//#include <windows.h>
+#include <thread>
 #include "ParticleSimulation.h"
 
 #define SCREEN_RESOLUTION 900
@@ -45,6 +45,9 @@ bool bDoOnce = false;
 
 int main()
 {
+	const auto processor_count = std::thread::hardware_concurrency();
+	std::cout << processor_count << std::endl;
+
 	// Help message to better explain program use
 	std::cout << "====================" << std::endl;
 	std::cout << "Welcome to Tinderbox" << std::endl;
