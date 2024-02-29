@@ -71,11 +71,11 @@ std::unordered_map<PARTICLE_TYPE, GasProperties>	gasPropertiesMap
 	{PARTICLE_TYPE::STEAM,	GasProperties(100,		COLOR_STEAM)},
 	{PARTICLE_TYPE::SMOKE,	GasProperties(100,		COLOR_SMOKE)}
 };
-
 bool bSleepingChunks[chunkCount];
 bool bChunksNeedUpdating[chunkCount] = { false };
 std::unordered_map<int, std::shared_ptr<Particle>> chunkParticleMaps[chunkCount];
 
+std::mutex ParticleMapLock;
 std::mutex ExpiredIDLock;
 
 template <typename F>
@@ -113,7 +113,6 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 			if (bChunksNeedUpdating[iParticleChunkID])
 			{
 				mapping.second->ForceWake();
-				//bChunksNeedUpdating[iParticleChunkID] = false;
 			}
 			if (!mapping.second->QResting() && !mapping.second->QHasLifetimeExpired())
 			{
@@ -144,21 +143,12 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 		++iPixelsVisitted_Total;	// Pre-chunk pixel visits
 		++iPixelsVisitted_PreChunk;
 	}
-	
-	// If we destroyed ANY particle, we need to notify the chunks adjacent and including the one where the deletion took place that they need to update
 	for (int i = 0; i < chunkCount; ++i)
 	{
 		bChunksNeedUpdating[i] = false;
 	}
 
-	// Tick each chunk
-	/*for (int i = 0; i < chunkCount; ++i)
-	{
-		std::thread worker([this, &arCanvas, &i, &expiredParticleIDs]() { TickChunk(&chunkParticleMaps[i], &arCanvas, &expiredParticleIDs); });
-		worker.join();
-		++iChunksVisitted;
-	}*/
-
+	// Spin up chunk update threads
 	std::thread worker1([this, &arCanvas, &expiredParticleIDs]() { TickChunk(&chunkParticleMaps[0], &arCanvas, &expiredParticleIDs); });
 	++iChunksVisitted;
 	std::thread worker2([this, &arCanvas, &expiredParticleIDs]() { TickChunk(&chunkParticleMaps[1], &arCanvas, &expiredParticleIDs); });
