@@ -16,7 +16,7 @@ struct PowderProperties
 		cColor = acColor;
 	}
 
-	int iAttemptsBeforeRest = 1000;
+	int iAttemptsBeforeRest = 200;
 	int iFailedMoveAttempts = 0;
 	int iIgnitionTemperature = 100;
 	int iBurningFuelConsumption = 1;

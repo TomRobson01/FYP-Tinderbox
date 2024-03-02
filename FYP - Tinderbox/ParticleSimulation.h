@@ -80,7 +80,7 @@ public:
 	int QBurningParticles() { return iBurningParticles; }
 
 protected:
-	void TickChunk(std::unordered_map<int, std::shared_ptr<Particle>> amParticleMap, sf::Image& arCanvas, std::vector<int>& arExpiredIDs);
+	void TickChunk(std::unordered_map<int, std::shared_ptr<Particle>>* amParticleMap, sf::Image* arCanvas, std::vector<int>* arExpiredIDs);
 
 	bool IsParticleOnEdge(unsigned int aiX, unsigned int aiY);
 	bool IsPointWithinSimulation(unsigned int aiX, unsigned int aiY);

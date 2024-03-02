@@ -7,6 +7,8 @@
 
 #include <cmath>
 #include <iostream>
+#include <mutex>
+#include <thread>
 #include <vector>
 
 #define CREATE_PARTICLE_PTR(T, PT, PP) \
@@ -69,10 +71,12 @@ std::unordered_map<PARTICLE_TYPE, GasProperties>	gasPropertiesMap
 	{PARTICLE_TYPE::STEAM,	GasProperties(100,		COLOR_STEAM)},
 	{PARTICLE_TYPE::SMOKE,	GasProperties(100,		COLOR_SMOKE)}
 };
-
 bool bSleepingChunks[chunkCount];
 bool bChunksNeedUpdating[chunkCount] = { false };
 std::unordered_map<int, std::shared_ptr<Particle>> chunkParticleMaps[chunkCount];
+
+std::mutex ParticleMapLock;
+std::mutex ExpiredIDLock;
 
 template <typename F>
 void ForEachParticle(std::unordered_map<int, std::shared_ptr<Particle>> aParticleMap, F afFunctor)
@@ -109,7 +113,6 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 			if (bChunksNeedUpdating[iParticleChunkID])
 			{
 				mapping.second->ForceWake();
-				//bChunksNeedUpdating[iParticleChunkID] = false;
 			}
 			if (!mapping.second->QResting() && !mapping.second->QHasLifetimeExpired())
 			{
@@ -140,19 +143,36 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 		++iPixelsVisitted_Total;	// Pre-chunk pixel visits
 		++iPixelsVisitted_PreChunk;
 	}
-	
-	// If we destroyed ANY particle, we need to notify the chunks adjacent and including the one where the deletion took place that they need to update
 	for (int i = 0; i < chunkCount; ++i)
 	{
 		bChunksNeedUpdating[i] = false;
 	}
 
-	// Tick each chunk
-	for (int i = 0; i < chunkCount; ++i)
-	{
-		TickChunk(chunkParticleMaps[i], arCanvas, expiredParticleIDs);
-		++iChunksVisitted;
-	}
+	// Spin up chunk update threads
+	std::thread worker1([this, &arCanvas, &expiredParticleIDs]() { TickChunk(&chunkParticleMaps[0], &arCanvas, &expiredParticleIDs); });
+	++iChunksVisitted;
+	std::thread worker2([this, &arCanvas, &expiredParticleIDs]() { TickChunk(&chunkParticleMaps[1], &arCanvas, &expiredParticleIDs); });
+	++iChunksVisitted;
+	std::thread worker3([this, &arCanvas, &expiredParticleIDs]() { TickChunk(&chunkParticleMaps[2], &arCanvas, &expiredParticleIDs); });
+	++iChunksVisitted;
+	std::thread worker4([this, &arCanvas, &expiredParticleIDs]() { TickChunk(&chunkParticleMaps[3], &arCanvas, &expiredParticleIDs); });
+	++iChunksVisitted;
+	std::thread worker5([this, &arCanvas, &expiredParticleIDs]() { TickChunk(&chunkParticleMaps[4], &arCanvas, &expiredParticleIDs); });
+	++iChunksVisitted;
+	std::thread worker6([this, &arCanvas, &expiredParticleIDs]() { TickChunk(&chunkParticleMaps[5], &arCanvas, &expiredParticleIDs); });
+	++iChunksVisitted;
+	std::thread worker7([this, &arCanvas, &expiredParticleIDs]() { TickChunk(&chunkParticleMaps[6], &arCanvas, &expiredParticleIDs); });
+	++iChunksVisitted;
+	std::thread worker8([this, &arCanvas, &expiredParticleIDs]() { TickChunk(&chunkParticleMaps[7], &arCanvas, &expiredParticleIDs); });
+	++iChunksVisitted;
+	worker1.join();
+	worker2.join();
+	worker3.join();
+	worker4.join();
+	worker5.join();
+	worker6.join();
+	worker7.join();
+	worker8.join();
 
 	// Clear chunk smart pointer cache, releasing their refs
 	for (int i = 0; i < chunkCount; ++i)
@@ -219,9 +239,14 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 /// <param name="arCanvas">Canvas to draw to</param>
 /// <param name="arExpiredIDs">Expired IDs vector - used to clean up expired particles at the end of the wider simulation tick</param>
 /// <remarks>Note: this is not currently considered thread safe. If these were to be turned into threads as-is, we'd have each thread accessing the particleIDMap, and the hashmap, all the time.</remarks>
-void ParticleSimulation::TickChunk(std::unordered_map<int, std::shared_ptr<Particle>> amParticleMap, sf::Image& arCanvas, std::vector<int>& arExpiredIDs)
+void ParticleSimulation::TickChunk(std::unordered_map<int, std::shared_ptr<Particle>>* amParticleMap, sf::Image* arCanvas, std::vector<int>* arExpiredIDs)
 {
-	for (std::pair<const int, std::shared_ptr<Particle>> mapping : amParticleMap)
+	if (!amParticleMap || !arCanvas || !arExpiredIDs)
+	{
+		return;
+	}
+
+	for (std::pair<const int, std::shared_ptr<Particle>> mapping : *amParticleMap)
 	{
 		if (mapping.second)
 		{
@@ -268,11 +293,13 @@ void ParticleSimulation::TickChunk(std::unordered_map<int, std::shared_ptr<Parti
 			{
 				cCol.a = 200;
 			}
-			arCanvas.setPixel(x, y, cCol); 
+			arCanvas->setPixel(x, y, cCol); 
 			
 			if (mapping.second->QHasLifetimeExpired())
 			{
-				arExpiredIDs.push_back(mapping.first);
+				ExpiredIDLock.lock();
+				arExpiredIDs->push_back(mapping.first);
+				ExpiredIDLock.unlock();
 				mapping.second.reset();
 			}
 		}

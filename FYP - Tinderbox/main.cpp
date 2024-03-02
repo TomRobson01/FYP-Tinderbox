@@ -1,5 +1,5 @@
 #include <iostream>
-//#include <windows.h>
+#include <thread>
 #include "ParticleSimulation.h"
 
 #define SCREEN_RESOLUTION 900

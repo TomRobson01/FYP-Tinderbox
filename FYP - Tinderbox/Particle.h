@@ -46,7 +46,7 @@ public:
 	int			QY()								{ return y; }
 	bool		QHasBeenUpdatedThisTick()			{ return bHasBeenUpdatedThisTick; }
 	int			QID()								{ return iParticleID; }
-	bool		QResting()							{ return bResting && !QIsOnFire(); }
+	bool		QResting()							{ return bResting && eFireState != PARTICLE_FIRE_STATE::BURNING; }
 	int			QTemperature()						{ return temperature; }
 	bool		QIsOnFire()							{ return eFireState == PARTICLE_FIRE_STATE::BURNING; }
 
