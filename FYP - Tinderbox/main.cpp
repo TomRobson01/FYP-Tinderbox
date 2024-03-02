@@ -1,6 +1,7 @@
 #include <iostream>
 //#include <windows.h>
 #include "ParticleSimulation.h"
+#include "PerformanceReporter.h"
 
 #define SCREEN_RESOLUTION 900
 #define CANVAS_SCALE_FACTOR ((float)SCREEN_RESOLUTION / (float)simulationResolution)
@@ -65,6 +66,8 @@ int main()
 	clock_t currentTicks;
 	clock_t deltaTicks = clock();
 	int ifps = 60;
+	int iTicksPerPerfCapture = 100;
+	int iTicksUntilPerfCapture = iTicksPerPerfCapture;
 
 	while (wWindow.isOpen())
 	{
@@ -238,7 +241,16 @@ int main()
 		// FPS calculation
 		deltaTicks = clock() - currentTicks;
 		ifps = deltaTicks > 0 ? CLOCKS_PER_SEC / deltaTicks : 0;
+
+		// Perf capture
+		--iTicksUntilPerfCapture;
+		if (iTicksUntilPerfCapture <= 0)
+		{
+			iTicksUntilPerfCapture = iTicksPerPerfCapture;
+			PerformanceReporter::QInstance().RegisterData(PerfDatum(ifps, deltaTicks, iParticleCount, iactiveParticles, iparticleVisits, ichunkVisits));
+		}
 	}
+	PerformanceReporter::QInstance().DumpData();
 }
 
 

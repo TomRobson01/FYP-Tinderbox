@@ -26,6 +26,7 @@
     <ClCompile Include="ParticlePowder.cpp" />
     <ClCompile Include="ParticleSimulation.cpp" />
     <ClCompile Include="ParticleSolid.cpp" />
+    <ClCompile Include="PerformanceReporter.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Particle.h" />
@@ -34,6 +35,7 @@
     <ClInclude Include="ParticlePowder.h" />
     <ClInclude Include="ParticleSimulation.h" />
     <ClInclude Include="ParticleSolid.h" />
+    <ClInclude Include="PerformanceReporter.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
