@@ -293,7 +293,7 @@ int main()
 		if (iTicksUntilPerfCapture <= 0)
 		{
 			iTicksUntilPerfCapture = iTicksPerPerfCapture;
-			PerformanceReporter::QInstance().RegisterData(PerfDatum(ifps, deltaTicks, iParticleCount, iactiveParticles, iparticleVisits, ichunkVisits));
+			PerformanceReporter::QInstance().RegisterData(PerfDatum(ifps, deltaTicks, iParticleCount, iactiveParticles, iparticleVisitsTotal, ichunkVisits));
 		}
 	}
 	PerformanceReporter::QInstance().DumpData();

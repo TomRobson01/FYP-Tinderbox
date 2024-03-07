@@ -250,6 +250,7 @@ void ParticleSimulation::TickChunk(std::unordered_map<int, std::shared_ptr<Parti
 	{
 		if (mapping.second)
 		{
+			ParticleMapLock.lock();
 			const int x = mapping.second->QX();
 			const int y = mapping.second->QY();
 
@@ -302,6 +303,7 @@ void ParticleSimulation::TickChunk(std::unordered_map<int, std::shared_ptr<Parti
 				ExpiredIDLock.unlock();
 				mapping.second.reset();
 			}
+			ParticleMapLock.unlock();
 		}
 		++iPixelsVisitted_Total; // Chunk tick pixel visits
 		++iPixelsVisitted_ChunkTick;
