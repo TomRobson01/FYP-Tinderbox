@@ -1,6 +1,8 @@
 #include "ParticlePowder.h"
 #include "ParticleSimulation.h"
 
+#include <iostream>
+
 /// <summary>
 /// Handles the movement logic for this particle
 /// </summary>
@@ -69,7 +71,17 @@ void ParticlePowder::Ignite()
 	{
 		temperature = QIgnitionTemperature();
 		eFireState = PARTICLE_FIRE_STATE::BURNING;
+		ForceWake();
 	}
+}
+
+/// <summary>
+/// Forces the particle to wake
+/// </summary>
+void ParticlePowder::ForceWake()
+{
+	bResting = false;
+	pProperties.iFailedMoveAttempts = 0;
 }
 
 /// <summary>
