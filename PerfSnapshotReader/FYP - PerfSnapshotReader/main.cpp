@@ -25,6 +25,16 @@
     ImGui::Text(STR); \
     }
 
+#define IMGUI_DRAW_INSIGHT_BAR(DATA, STR) \
+    { \
+    float progress_saturated = DATA.stat[LoadedData::iInsightSamplePoint] / DATA.fMax; \
+    char buf[32]; \
+    sprintf_s(buf, "%f", DATA.stat[LoadedData::iInsightSamplePoint]); \
+    ImGui::ProgressBar(progress_saturated, ImVec2(0.f, 0.f), buf); \
+    ImGui::SameLine(0.0f, ImGui::GetStyle().ItemInnerSpacing.x); \
+    ImGui::Text(STR); \
+    }
+
 #define IMGUI_DRAW_STAT_STRUCTURE(DATA, STR) \
     if (ImGui::CollapsingHeader(STR)) \
     { \
@@ -45,25 +55,40 @@
         if (datum.NAM > LoadedData::NAM.fMax) \
         { \
             LoadedData::NAM.fMax = datum.NAM; \
+            LoadedData::NAM.iMaxIndex = LoadedData::NAM.stat.size() - 1; \
         } \
         if (datum.NAM < LoadedData::NAM.fMin) \
         { \
             LoadedData::NAM.fMin = datum.NAM; \
+            LoadedData::NAM.iMinIndex = LoadedData::NAM.stat.size() - 1; \
         } \
     });
 
 struct LoadedDataGroup
 {
+    void Reset()
+    {
+        stat.clear();
+        fMax = 0;
+        fMin = 999999;
+        fAvg = 0;
+        iMinIndex = 0;
+        iMaxIndex = 0;
+    }
+
     std::vector<float> stat;
     float fMax = 0;
     float fMin = 999999;
     float fAvg;
+    int iMinIndex = 0;
+    int iMaxIndex = 0;
 };
 
 // NOTE: Please ensure these always match the name of their respective variables in SnapshotDatum. Failure to do so will break the COLLECT_DATA macro
 namespace LoadedData
 {
     bool bDataLoaded = false;
+    int iInsightSamplePoint = 0;
     LoadedDataGroup FPS;
     LoadedDataGroup FrameTime;
     LoadedDataGroup ParticleCount;
@@ -72,6 +97,26 @@ namespace LoadedData
     LoadedDataGroup ChunkVisits;
 }
 // NOTE: Please ensure these always match the name of their respective variables in SnapshotDatum. Failure to do so will break the COLLECT_DATA macro
+
+namespace InsightComboSettings
+{
+    int iSelection = 0;
+    const char* sSettings[] = 
+    {
+        "FPS", 
+        "Frame Time (MS)", 
+        "Particle Count", 
+        "Active Particle Count", 
+        "Pixel Visits", 
+        "Chunk Visists"
+    };
+    const char* sPreviewString = sSettings[iSelection];
+}
+
+namespace
+{
+    GLFWwindow* window;
+}
 
 /// <summary>
 /// Used to configure the colour scheme for ImGui
@@ -169,6 +214,13 @@ void LoadData(std::string asDirectory)
     if (bReadOkay)
     {
         // File was read okay, parse the loaded data into our itnernal structs
+        // Reset data structs
+        LoadedData::FPS.Reset();
+        LoadedData::FrameTime.Reset();
+        LoadedData::ParticleCount.Reset();
+        LoadedData::ActiveParticleCount.Reset();
+        LoadedData::PixelVisits.Reset();
+        LoadedData::ChunkVisits.Reset();
 
         // Collect parsed data for each data entry
         COLLECT_DATA(FPS);
@@ -198,6 +250,13 @@ void LoadData(std::string asDirectory)
         DataGroupAveragerFunctor(LoadedData::ActiveParticleCount);
         DataGroupAveragerFunctor(LoadedData::PixelVisits);
         DataGroupAveragerFunctor(LoadedData::ChunkVisits);
+
+        // Set Window Name
+        if (window)
+        {
+            std::string sTitle = "Perf Report Inspector (" + asDirectory + ")";
+            glfwSetWindowTitle(window, sTitle.c_str());
+        }
     }
     else
     {
@@ -235,7 +294,6 @@ void SelectFile()
 int main()
 {
     // GLFW boilerplate
-    GLFWwindow* window;
 
     if (!glfwInit())
         return -1;
@@ -303,14 +361,88 @@ int main()
 
             if (LoadedData::bDataLoaded)
             {
-                float progress = 0.5f;
+                ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
+                if (ImGui::BeginTabBar("MyTabBar", tab_bar_flags))
+                {
+                    if (ImGui::BeginTabItem("Graphs"))
+                    {
+                        IMGUI_DRAW_STAT_STRUCTURE(LoadedData::FPS, "FPS");
+                        IMGUI_DRAW_STAT_STRUCTURE(LoadedData::FrameTime, "Frame Time (MS)");
+                        IMGUI_DRAW_STAT_STRUCTURE(LoadedData::ParticleCount, "Particle Count");
+                        IMGUI_DRAW_STAT_STRUCTURE(LoadedData::ActiveParticleCount, "Active Particle Count");
+                        IMGUI_DRAW_STAT_STRUCTURE(LoadedData::PixelVisits, "Pixel Visits");
+                        IMGUI_DRAW_STAT_STRUCTURE(LoadedData::ChunkVisits, "Chunk Visits");
+                        ImGui::EndTabItem();
+                    }
+                    if (ImGui::BeginTabItem("Insights"))
+                    {
+                        auto previewData = LoadedData::FPS;
+                        switch (InsightComboSettings::iSelection)
+                        {
+                        case 1:
+                            previewData = LoadedData::FrameTime;
+                            break;
+                        case 2:
+                            previewData = LoadedData::ParticleCount;
+                            break;
+                        case 3:
+                            previewData = LoadedData::ActiveParticleCount;
+                            break;
+                        case 4:
+                            previewData = LoadedData::PixelVisits;
+                            break;
+                        case 5:
+                            previewData = LoadedData::ChunkVisits;
+                            break;
+                        default:
+                            break;
+                        }
+                        ImGui::PlotHistogram("", previewData.stat.data(), previewData.stat.size(), 0, NULL, 0.0f, previewData.fMax, ImVec2(0, 80.0f));
+                        ImGui::SameLine();
+                        ImGui::PushItemWidth(256);
+                        {
+                            if (ImGui::BeginCombo("Preview Graph", InsightComboSettings::sPreviewString))
+                            {
+                                for (int i = 0; i < IM_ARRAYSIZE(InsightComboSettings::sSettings); ++i)
+                                {
+                                    const bool bIsSelected = (InsightComboSettings::iSelection == i);
+                                    if (ImGui::Selectable(InsightComboSettings::sSettings[i], bIsSelected))
+                                    {
+                                        InsightComboSettings::iSelection = i;
+                                        InsightComboSettings::sPreviewString = InsightComboSettings::sSettings[i];
+                                    }
+                                }
+                                ImGui::EndCombo();
+                            }
+                        }
+                        ImGui::PopItemWidth();
 
-                IMGUI_DRAW_STAT_STRUCTURE(LoadedData::FPS, "FPS");
-                IMGUI_DRAW_STAT_STRUCTURE(LoadedData::FrameTime, "Frame Time (MS)");
-                IMGUI_DRAW_STAT_STRUCTURE(LoadedData::ParticleCount, "Particle Count");
-                IMGUI_DRAW_STAT_STRUCTURE(LoadedData::ActiveParticleCount, "Active Particle Count");
-                IMGUI_DRAW_STAT_STRUCTURE(LoadedData::PixelVisits, "Pixel Visits");
-                IMGUI_DRAW_STAT_STRUCTURE(LoadedData::ChunkVisits, "Chunk Visits");
+                        ImGui::SliderInt("Sample Point", &LoadedData::iInsightSamplePoint, 0, LoadedData::FPS.stat.size() - 1);
+                        ImGui::SameLine();
+                        ImGui::PushItemWidth(128);
+                        {
+                            ImGui::InputInt("##InputInt", &LoadedData::iInsightSamplePoint, 1, 100, ImGuiInputTextFlags_::ImGuiInputTextFlags_CharsDecimal);
+                        }
+                        ImGui::PopItemWidth();
+                        ImGui::SameLine();
+                        if (ImGui::Button("Jump to Min")) { LoadedData::iInsightSamplePoint = previewData.iMinIndex; }
+                        ImGui::SameLine();
+                        if (ImGui::Button("Jump to Max")) { LoadedData::iInsightSamplePoint = previewData.iMaxIndex; }
+                        LoadedData::iInsightSamplePoint = min(max(0, LoadedData::iInsightSamplePoint), LoadedData::FPS.stat.size() - 1);
+
+                        ImGui::Separator();
+                        IMGUI_DRAW_INSIGHT_BAR(LoadedData::FPS,                 "FPS");
+                        IMGUI_DRAW_INSIGHT_BAR(LoadedData::FrameTime,           "Frame Time (MS)");
+                        IMGUI_DRAW_INSIGHT_BAR(LoadedData::ParticleCount,       "Particle Count");
+                        IMGUI_DRAW_INSIGHT_BAR(LoadedData::ActiveParticleCount, "Active Particle Count");
+                        IMGUI_DRAW_INSIGHT_BAR(LoadedData::PixelVisits,         "Pixel Visits");
+                        IMGUI_DRAW_INSIGHT_BAR(LoadedData::ChunkVisits,         "Chunk Visits");
+                        ImGui::EndTabItem();
+                    }
+                    ImGui::EndTabBar();
+                }
+                ImGui::Separator();
+
             }
 
             ImGui::End();
