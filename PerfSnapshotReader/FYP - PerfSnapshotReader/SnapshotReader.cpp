@@ -59,7 +59,7 @@ bool SnapshotReader::ParseData(std::ifstream& arFStream)
 					sWorker += currentLine[i];
 					if (currentLine[i] == currentLine[currentLine.size() - 1])
 					{
-						parsedStats.push_back(std::stof(sWorker));
+						parsedStats.push_back(std::stoi(sWorker));
 						sWorker = "";
 					}
 				}
@@ -76,7 +76,10 @@ bool SnapshotReader::ParseData(std::ifstream& arFStream)
 				datum.PixelVisits = parsedStats[4];
 				datum.ChunkVisits = parsedStats[5];
 
-				data.push_back(datum);
+				if (datum.FPS > 0)
+				{
+					data.push_back(datum);
+				}
 			}
 		}
 	}

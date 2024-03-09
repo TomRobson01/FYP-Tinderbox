@@ -1,5 +1,5 @@
 #include <iostream>
-//#include <windows.h>
+#include <thread>
 #include "ParticleSimulation.h"
 #include "PerformanceReporter.h"
 
@@ -46,6 +46,19 @@ bool bDoOnce = false;
 
 int main()
 {
+	// Help message to better explain program use
+	std::cout << "====================" << std::endl;
+	std::cout << "Welcome to Tinderbox" << std::endl;
+	std::cout << "====================" << std::endl;
+	std::cout << "\nControls ---------" << std::endl;
+	std::cout << "1-0: Element bindings" << std::endl;
+	std::cout << "F1: Show performance metrics" << std::endl;
+	std::cout << "F2: Show chunk boundaries" << std::endl;
+	std::cout << "F10: Brush size 1" << std::endl;
+	std::cout << "F11: Brush size 3" << std::endl;
+	std::cout << "F12: Brush size 5" << std::endl;
+	std::cout << "\n" << std::endl;
+
 	sf::RenderWindow wWindow(sf::VideoMode(SCREEN_RESOLUTION, SCREEN_RESOLUTION), "Tinderbox");
 	sf::Event eWinEvent;
 
@@ -58,9 +71,14 @@ int main()
 	DEFINE_DEBUG_STAT_TEXT(TitleStats, 4, 32, "--- STATS ---");
 	DEFINE_DEBUG_STAT_TEXT(ActiveParticlesCount, 8, 48, "");
 	DEFINE_DEBUG_STAT_TEXT(TotalParticlesCount, 8, 64, "");
-	DEFINE_DEBUG_STAT_TEXT(ParticleVisitsCount, 8, 80, "");
-	DEFINE_DEBUG_STAT_TEXT(ChunkVisitsCount, 8, 96, "");
-	DEFINE_DEBUG_STAT_TEXT(BurningParticles, 8, 112, "");
+	DEFINE_DEBUG_STAT_TEXT(ParticleVisitsCountTotal, 8, 80, "");
+	DEFINE_DEBUG_STAT_TEXT(ParticleVisitsCountPreChunk, 24, 96, "");
+	DEFINE_DEBUG_STAT_TEXT(ParticleVisitsCountChunkTick, 24, 112, "");
+	DEFINE_DEBUG_STAT_TEXT(ParticleVisitsCountWakeChunk, 24, 128, "");
+	DEFINE_DEBUG_STAT_TEXT(ParticleVisitsCountAllowUpdate, 24, 144, "");
+	DEFINE_DEBUG_STAT_TEXT(ParticleVisitsCountExpiredCleanup, 24, 160, "");
+	DEFINE_DEBUG_STAT_TEXT(ChunkVisitsCount, 8, 176, "");
+	DEFINE_DEBUG_STAT_TEXT(BurningParticles, 8, 192, "");
 	// -------------------
 
 	clock_t currentTicks;
@@ -76,16 +94,27 @@ int main()
 		// Display important profiling information
 		const int iParticleCount = ParticleSimulation::QInstance().QParticleCount();
 		const int iactiveParticles = ParticleSimulation::QInstance().QActiveParticleCount();
-		const int iparticleVisits = ParticleSimulation::QInstance().QParticleVisits();
+		const int iparticleVisitsTotal = ParticleSimulation::QInstance().QParticleVisitsTotal();
+		const int iparticleVisitsPreChunk = ParticleSimulation::QInstance().QParticleVisitsPreChunk();
+		const int iparticleVisitsChunkTick = ParticleSimulation::QInstance().QParticleVisitsChunkTick();
+		const int iparticleVisitsWakeChunk = ParticleSimulation::QInstance().QParticleVisitsWakeChunk();
+		const int iparticleVisitsAllowUpdates = ParticleSimulation::QInstance().QParticleVisitsAllowUpdate();
+		const int iparticleVisitsExpiredCleanup = ParticleSimulation::QInstance().QParticleVisitsExpiredCleanup();
 		const int ichunkVisits = ParticleSimulation::QInstance().QChunkVisits();
 		const int iBurningParticles = ParticleSimulation::QInstance().QBurningParticles();
-		SET_DEBUG_STAT_TEXT_VAL(FPSCount,				ifps,				"FPS");
-		SET_DEBUG_STAT_TEXT_VAL(FrameMS,				deltaTicks,			"MS");
-		SET_DEBUG_STAT_TEXT_VAL(ActiveParticlesCount,	iactiveParticles,	"Active Particles");
-		SET_DEBUG_STAT_TEXT_VAL(TotalParticlesCount,	iParticleCount,		"Total Particles");
-		SET_DEBUG_STAT_TEXT_VAL(ParticleVisitsCount,	iparticleVisits,	"Pixel Visits");
-		SET_DEBUG_STAT_TEXT_VAL(ChunkVisitsCount,		ichunkVisits,		"Chunk Visits");
-		SET_DEBUG_STAT_TEXT_VAL(BurningParticles,		iBurningParticles,	"Burning Particles");
+
+		SET_DEBUG_STAT_TEXT_VAL(FPSCount,							ifps,							"FPS");
+		SET_DEBUG_STAT_TEXT_VAL(FrameMS,							deltaTicks,						"MS");
+		SET_DEBUG_STAT_TEXT_VAL(ActiveParticlesCount,				iactiveParticles,				"Active Particles");
+		SET_DEBUG_STAT_TEXT_VAL(TotalParticlesCount,				iParticleCount,					"Total Particles");
+		SET_DEBUG_STAT_TEXT_VAL(ParticleVisitsCountTotal,			iparticleVisitsTotal,			"Pixel Visits");
+		SET_DEBUG_STAT_TEXT_VAL(ParticleVisitsCountPreChunk,		iparticleVisitsPreChunk,		"Pre-Chunk");
+		SET_DEBUG_STAT_TEXT_VAL(ParticleVisitsCountChunkTick,		iparticleVisitsChunkTick,		"Chunk Tick");
+		SET_DEBUG_STAT_TEXT_VAL(ParticleVisitsCountWakeChunk,		iparticleVisitsWakeChunk,		"Wake Chunk");
+		SET_DEBUG_STAT_TEXT_VAL(ParticleVisitsCountAllowUpdate,		iparticleVisitsAllowUpdates,	"Allow Updates");
+		SET_DEBUG_STAT_TEXT_VAL(ParticleVisitsCountExpiredCleanup,	iparticleVisitsExpiredCleanup,	"Expired Cleanup");
+		SET_DEBUG_STAT_TEXT_VAL(ChunkVisitsCount,					ichunkVisits,					"Chunk Visits");
+		SET_DEBUG_STAT_TEXT_VAL(BurningParticles,					iBurningParticles,				"Burning Particles");
 
 		// ---- RENDER BEGINS ----
 		wWindow.clear();
@@ -116,9 +145,26 @@ int main()
 			wWindow.draw(TitleStats);
 			wWindow.draw(ActiveParticlesCount);
 			wWindow.draw(TotalParticlesCount);
-			wWindow.draw(ParticleVisitsCount);
+			wWindow.draw(ParticleVisitsCountTotal);
+			wWindow.draw(ParticleVisitsCountPreChunk);
+			wWindow.draw(ParticleVisitsCountChunkTick);
+			wWindow.draw(ParticleVisitsCountWakeChunk);
+			wWindow.draw(ParticleVisitsCountAllowUpdate);
+			wWindow.draw(ParticleVisitsCountExpiredCleanup);
 			wWindow.draw(ChunkVisitsCount);
 			wWindow.draw(BurningParticles);
+		}
+		if (DebugToggles::QInstance().bShowChunkBoundaries)
+		{
+			for (int x = 0; x < SCREEN_RESOLUTION; x += (SCREEN_RESOLUTION / chunkCount))
+			{
+				sf::Vertex vLine[2];
+				vLine[0].position = sf::Vector2f(x, 0);
+				vLine[0].color = sf::Color::Red;
+				vLine[1].position = sf::Vector2f(x, SCREEN_RESOLUTION);
+				vLine[1].color = sf::Color::Red;
+				wWindow.draw(vLine, 2, sf::Lines);
+			}
 		}
 		wWindow.display();
 		// ---- RENDER ENDS ----
@@ -247,7 +293,7 @@ int main()
 		if (iTicksUntilPerfCapture <= 0)
 		{
 			iTicksUntilPerfCapture = iTicksPerPerfCapture;
-			PerformanceReporter::QInstance().RegisterData(PerfDatum(ifps, deltaTicks, iParticleCount, iactiveParticles, iparticleVisits, ichunkVisits));
+			PerformanceReporter::QInstance().RegisterData(PerfDatum(ifps, deltaTicks, iParticleCount, iactiveParticles, iparticleVisitsTotal, ichunkVisits));
 		}
 	}
 	PerformanceReporter::QInstance().DumpData();

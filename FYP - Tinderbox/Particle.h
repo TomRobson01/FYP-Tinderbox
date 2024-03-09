@@ -30,6 +30,7 @@ public:
 	virtual void	HandleMovement() {}
 	virtual void	HandleFireProperties() {}
 	virtual void	Ignite() {}
+	virtual void	ForceWake() { bResting = false; }
 	virtual bool	QHasLifetimeExpired() { return bExpired; }
 	virtual int		QIgnitionTemperature() { return -1; }
 	virtual int		QFuel() { return -1; }
@@ -40,13 +41,12 @@ public:
 	void		SetHasBeenUpdated(bool abNewVal)	{ bHasBeenUpdatedThisTick = abNewVal; }
 	void		IncreaseTemperature(int aiStep)		{ temperature += aiStep; }
 	void		ForceExpire()						{ bExpired = true; }
-	void		ForceWake()							{ bResting = false; }
 	sf::Color	QColor()							{ return cColor; }
 	int			QX()								{ return x; }
 	int			QY()								{ return y; }
 	bool		QHasBeenUpdatedThisTick()			{ return bHasBeenUpdatedThisTick; }
 	int			QID()								{ return iParticleID; }
-	bool		QResting()							{ return bResting; }
+	bool		QResting()							{ return bResting && eFireState != PARTICLE_FIRE_STATE::BURNING; }
 	int			QTemperature()						{ return temperature; }
 	bool		QIsOnFire()							{ return eFireState == PARTICLE_FIRE_STATE::BURNING; }
 
@@ -58,6 +58,6 @@ protected:
 	unsigned int x, y;
 	sf::Color cColor;
 	unsigned int temperature = 0;
-	PARTICLE_FIRE_STATE eFireState;
+	PARTICLE_FIRE_STATE eFireState = PARTICLE_FIRE_STATE::NONE;
 };
 

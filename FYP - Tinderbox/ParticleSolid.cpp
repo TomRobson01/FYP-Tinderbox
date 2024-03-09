@@ -5,7 +5,10 @@
 /// </summary>
 void ParticleSolid::HandleMovement()
 {
-	bResting = true;
+	if (!QIsOnFire())
+	{
+		bResting = true;
+	}
 }
 
 /// <summary>
@@ -38,6 +41,7 @@ void ParticleSolid::Ignite()
 	{
 		temperature = FIRE_TEMP;
 		eFireState = PARTICLE_FIRE_STATE::BURNING;
+		bResting = false;
 	}
 }
 

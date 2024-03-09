@@ -16,7 +16,7 @@ struct PowderProperties
 		cColor = acColor;
 	}
 
-	int iAttemptsBeforeRest = 1000;
+	int iAttemptsBeforeRest = 200;
 	int iFailedMoveAttempts = 0;
 	int iIgnitionTemperature = 100;
 	int iBurningFuelConsumption = 1;
@@ -41,6 +41,7 @@ public:
 	void HandleMovement() override;
 	void HandleFireProperties() override;
 	void Ignite() override;
+	void ForceWake() override;
 	bool QHasLifetimeExpired() override;
 	int QIgnitionTemperature() override;
 	int QFuel() override;
