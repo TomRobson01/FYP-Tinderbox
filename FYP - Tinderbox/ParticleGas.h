@@ -16,9 +16,10 @@ struct GasProperties
 class ParticleGas : public Particle
 {
 public:
-	ParticleGas(int aiID, unsigned int aiX, unsigned int aiY, GasProperties apProperties)
+	ParticleGas(int aiID, unsigned int aiX, unsigned int aiY, uint8_t auiParticleType, GasProperties apProperties)
 	{
 		iParticleID = aiID;
+		uiParticleType = auiParticleType;
 		x = aiX;
 		y = aiY;
 		pProperties = apProperties;

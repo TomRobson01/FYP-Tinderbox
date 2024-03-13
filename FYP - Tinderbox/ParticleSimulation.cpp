@@ -12,7 +12,7 @@
 #include <vector>
 
 #define CREATE_PARTICLE_PTR(T, PT, PP) \
-	std::make_shared<T>(iUniqueParticleID, aiX, aiY, PP)
+	std::make_shared<T>(iUniqueParticleID, aiX, aiY, static_cast<uint8_t>(PT), PP)
 
 #define RANDOM_INT(MIN, MAX) \
 	rand() % (MAX - MIN + 1) + MIN
@@ -77,6 +77,7 @@ std::unordered_map<int, std::shared_ptr<Particle>> chunkParticleMaps[chunkCount]
 
 std::mutex ParticleMapLock;
 std::mutex ExpiredIDLock;
+std::mutex ChunkTickLock;
 
 template <typename F>
 void ForEachParticle(std::unordered_map<int, std::shared_ptr<Particle>> aParticleMap, F afFunctor)
@@ -116,8 +117,6 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 			}
 			if (!mapping.second->QResting() && !mapping.second->QHasLifetimeExpired())
 			{
-
-				// From there, we can construct the mapping, and 
 				chunkParticleMaps[iParticleChunkID].emplace(mapping.second->QID(), mapping.second);
 			}
 			else
@@ -149,6 +148,7 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 	}
 
 	// Spin up chunk update threads
+	ChunkTickLock.lock();
 	std::thread worker1([this, &arCanvas, &expiredParticleIDs]() { TickChunk(&chunkParticleMaps[0], &arCanvas, &expiredParticleIDs); });
 	++iChunksVisitted;
 	std::thread worker2([this, &arCanvas, &expiredParticleIDs]() { TickChunk(&chunkParticleMaps[1], &arCanvas, &expiredParticleIDs); });
@@ -229,6 +229,7 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 			++iPixelsVisitted_ExpiredCleanup;
 		}
 	}
+	ChunkTickLock.unlock();
 	expiredParticleIDs.clear();
 }
 
@@ -323,7 +324,7 @@ bool ParticleSimulation::RequestParticleMove(int aiRequesterID, unsigned int aiN
 
 	if (IsPointWithinSimulation(aiNewX, aiNewY))
 	{
-		if (GetParticleFromMap(aiRequesterID))	// TO-DO: Right now, we're just swapping the particles, irrespective of anything blocking the way. We need to do a range check to allow for multi-pixel movements with higher velocities
+		if (GetParticleFromMap(aiRequesterID))
 		{
 			// Check if the slot is free
 			// If so, move the particle into a new slow
@@ -519,6 +520,34 @@ bool ParticleSimulation::LineTest(int aiRequesterID, int aiStartX, int aiStartY,
 }
 
 /// <summary>
+/// Caches the current state of each particle in particleMap as a ParticleSnapshot, returning them in a SimulationSnapshot
+/// </summary>
+SimulationSnapshot ParticleSimulation::CreateSimulationSnapshot()
+{
+	SimulationSnapshot retVal = SimulationSnapshot();
+
+	ChunkTickLock.lock();
+	ParticleMapLock.lock();
+	for (std::pair<int, std::shared_ptr<Particle>> mapping : particleMap)
+	{
+		if (mapping.second)
+		{
+			ParticleSnapshot snap = ParticleSnapshot();
+			snap.tType = static_cast<PARTICLE_TYPE>(mapping.second->QType());
+			snap.iTemp = mapping.second->QTemperature();
+			snap.x = mapping.second->QX();
+			snap.y = mapping.second->QY();
+			retVal.cachedParticles.push_back(snap);
+		}
+	}
+	ParticleMapLock.unlock();
+	ChunkTickLock.unlock();
+
+	std::cout << "Snapshot taken!\n";
+	return retVal;
+}
+
+/// <summary>
 /// Marks all particles in the simulation as expired, ready for deletion in the next tick
 /// </summary>
 void ParticleSimulation::ResetSimulation()
@@ -530,6 +559,43 @@ void ParticleSimulation::ResetSimulation()
 			mapping.second->ForceExpire();
 		}
 	}
+}
+
+/// <summary>
+/// Forceably deletes all current particles and spawns new ones based on a snapshot
+/// </summary>
+/// <remarks>Acquires ParticleMapLock to ensure security when resetting the particle map.</remarks>
+void ParticleSimulation::ResetSimulation(SimulationSnapshot asSnapshot)
+{
+	ParticleMapLock.lock();
+	// First, release all smart pointers in the existing particle map
+	for (std::pair<int, std::shared_ptr<Particle>> mapping : particleMap)
+	{
+		if (mapping.second)
+		{
+			mapping.second.reset();
+		}
+	}
+	particleMap.clear();
+	for (int x = 0; x < simulationResolution; ++x)
+	{
+
+		for (int y = 0; y < simulationResolution; ++y)
+		{
+			particleIDMap[x][y] = NULL_PARTICLE_ID;
+			particleHeatMap[x][y] = 0;
+			updatedParticleIDs[x][y] = NULL_PARTICLE_ID;
+		}
+	}
+
+	// Then create new particles from the particle snapshots
+	for (ParticleSnapshot snap : asSnapshot.cachedParticles)
+	{
+		SpawnParticle(snap.x, snap.y, snap.tType);
+	}
+
+	std::cout << "Snapshot applied!\n";
+	ParticleMapLock.unlock();
 }
 
 /// <summary>

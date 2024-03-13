@@ -1,7 +1,9 @@
 #include <iostream>
 #include <thread>
+
 #include "ParticleSimulation.h"
 #include "PerformanceReporter.h"
+#include "SimulationSerializer.h"
 
 #define SCREEN_RESOLUTION 900
 #define CANVAS_SCALE_FACTOR ((float)SCREEN_RESOLUTION / (float)simulationResolution)
@@ -212,6 +214,14 @@ int main()
 							break;
 						case sf::Keyboard::F2:
 							DebugToggles::QInstance().bShowChunkBoundaries = !DebugToggles::QInstance().bShowChunkBoundaries;
+							break;
+
+
+						case sf::Keyboard::F5:
+							SimulationSerializer::QInstance().SaveSimulation();
+							break;
+						case sf::Keyboard::F6:
+							if (!SimulationSerializer::QInstance().LoadSimulation()) { std::cout << "Failed load\n"; }
 							break;
 
 						case sf::Keyboard::F10:

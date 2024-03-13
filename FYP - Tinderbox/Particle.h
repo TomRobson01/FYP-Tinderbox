@@ -18,9 +18,10 @@ class Particle
 {
 public:
 	Particle() = default;
-	Particle(int aiID, unsigned int aiX, unsigned int aiY)
+	Particle(int aiID, unsigned int aiX, unsigned int aiY, uint8_t auiParticleType)
 	{
 		iParticleID = aiID;
+		uiParticleType = auiParticleType;
 		x = aiX;
 		y = aiY;
 	}
@@ -46,12 +47,14 @@ public:
 	int			QY()								{ return y; }
 	bool		QHasBeenUpdatedThisTick()			{ return bHasBeenUpdatedThisTick; }
 	int			QID()								{ return iParticleID; }
+	uint8_t		QType()								{ return uiParticleType; }
 	bool		QResting()							{ return bResting && eFireState != PARTICLE_FIRE_STATE::BURNING; }
 	int			QTemperature()						{ return temperature; }
 	bool		QIsOnFire()							{ return eFireState == PARTICLE_FIRE_STATE::BURNING; }
 
 protected:
 	int iParticleID;
+	uint8_t uiParticleType;
 	bool bExpired = false;
 	bool bResting = false;
 	bool bHasBeenUpdatedThisTick = false;

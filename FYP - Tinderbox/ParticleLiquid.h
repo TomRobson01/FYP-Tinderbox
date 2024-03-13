@@ -24,9 +24,10 @@ struct LiquidProperties
 class ParticleLiquid : public Particle
 {
 public:
-	ParticleLiquid(int aiID, unsigned int aiX, unsigned int aiY, LiquidProperties apProperties)
+	ParticleLiquid(int aiID, unsigned int aiX, unsigned int aiY, uint8_t auiParticleType, LiquidProperties apProperties)
 	{
 		iParticleID = aiID;
+		uiParticleType = auiParticleType;
 		x = aiX;
 		y = aiY;
 		pProperties = apProperties;

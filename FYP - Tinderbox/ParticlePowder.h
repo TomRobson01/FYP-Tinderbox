@@ -29,9 +29,10 @@ struct PowderProperties
 class ParticlePowder : public Particle
 {
 public:
-	ParticlePowder(int aiID, unsigned int aiX, unsigned int aiY, PowderProperties apProperties)
+	ParticlePowder(int aiID, unsigned int aiX, unsigned int aiY, uint8_t auiParticleType, PowderProperties apProperties)
 	{
 		iParticleID = aiID;
+		uiParticleType = auiParticleType;
 		x = aiX;
 		y = aiY;
 		pProperties = apProperties;

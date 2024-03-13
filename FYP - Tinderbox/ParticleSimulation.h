@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <unordered_map>
+#include <vector>
 
 #include "Particle.h"
 
@@ -44,6 +45,18 @@ public:
 	bool bShowChunkBoundaries = false;
 };
 
+struct ParticleSnapshot
+{
+	PARTICLE_TYPE tType;
+	unsigned int x, y;
+	int iTemp;
+};
+
+struct SimulationSnapshot
+{
+	std::vector<ParticleSnapshot> cachedParticles;
+};
+
 class ParticleSimulation
 {
 public:
@@ -66,7 +79,9 @@ public:
 
 	bool LineTest(int aiRequesterID, int aiStartX, int aiStartY, int aiEndX, int aiEndY, int& aiHitPointX, int& aiHitPointY);
 
+	SimulationSnapshot CreateSimulationSnapshot();
 	void ResetSimulation();
+	void ResetSimulation(SimulationSnapshot asSnapshot);
 
 	int QParticleCount()		{ return particleMap.size(); };
 	int QActiveParticleCount();

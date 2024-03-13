@@ -21,9 +21,10 @@ struct SolidProperties
 class ParticleSolid : public Particle
 {
 public:
-	ParticleSolid(int aiID, unsigned int aiX, unsigned int aiY, SolidProperties apProperties)
+	ParticleSolid(int aiID, unsigned int aiX, unsigned int aiY, uint8_t auiParticleType, SolidProperties apProperties)
 	{
 		iParticleID = aiID;
+		uiParticleType = auiParticleType;
 		x = aiX;
 		y = aiY;
 		pProperties = apProperties;
