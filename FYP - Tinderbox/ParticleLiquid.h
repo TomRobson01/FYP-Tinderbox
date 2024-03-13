@@ -13,7 +13,7 @@ struct LiquidProperties
 		iVelocityY = aiVelocityY;
 		cColor = acColor;
 	}
-	int iAttemptsBeforeRest = 200;
+	int iAttemptsBeforeRest = 30;
 	int iFailedMoveAttempts = 0;
 	uint8_t uiDeathParticleType = 0;
 	int iVelocityX = 2;

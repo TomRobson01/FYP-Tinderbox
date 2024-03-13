@@ -5,11 +5,18 @@
 #include "ParticlePowder.h"
 #include "ParticleSolid.h"
 
+#include <SFML/Graphics.hpp>
+
 #include <cmath>
 #include <iostream>
 #include <mutex>
 #include <thread>
 #include <vector>
+
+// TO-DO: Move this to a pre-processor define
+#ifdef USE_THREADED_CHUNKS
+#define USE_THREADED_CHUNKS
+#endif
 
 #define CREATE_PARTICLE_PTR(T, PT, PP) \
 	std::make_shared<T>(iUniqueParticleID, aiX, aiY, static_cast<uint8_t>(PT), PP)
@@ -71,13 +78,16 @@ std::unordered_map<PARTICLE_TYPE, GasProperties>	gasPropertiesMap
 	{PARTICLE_TYPE::STEAM,	GasProperties(100,		COLOR_STEAM)},
 	{PARTICLE_TYPE::SMOKE,	GasProperties(100,		COLOR_SMOKE)}
 };
+
 bool bSleepingChunks[chunkCount];
 bool bChunksNeedUpdating[chunkCount] = { false };
 std::unordered_map<int, std::shared_ptr<Particle>> chunkParticleMaps[chunkCount];
 
+#ifdef USE_THREADED_CHUNKS
 std::mutex ParticleMapLock;
 std::mutex ExpiredIDLock;
 std::mutex ChunkTickLock;
+#endif
 
 template <typename F>
 void ForEachParticle(std::unordered_map<int, std::shared_ptr<Particle>> aParticleMap, F afFunctor)
@@ -119,36 +129,68 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 			{
 				chunkParticleMaps[iParticleChunkID].emplace(mapping.second->QID(), mapping.second);
 			}
-			else
+
+			const int x = mapping.second->QX();
+			const int y = mapping.second->QY();
+
+			if (!mapping.second->QResting())
 			{
-				// If a particle isn't going to be drawn by the chunk tick, draw it and check if it's expired now
-				if (mapping.second->QHasLifetimeExpired())
+				if (!mapping.second->QHasBeenUpdatedThisTick())
 				{
-					expiredParticleIDs.push_back(mapping.first);
+					mapping.second->HandleMovement();
+					mapping.second->SetHasBeenUpdated(true);
 				}
-				else
+			}
+
+			mapping.second->HandleFireProperties();
+
+			// If the particle is on fire, we need to heat the surroundings
+			if (mapping.second->QIsOnFire())
+			{
+				++iBurningParticles;
+				// TO-DO: Not thread safe, improve safety
+				auto HeatSurroundingsFunctor = [this](int aiX, int aiY, int aiTempStep)
 				{
-					const int x = mapping.second->QX();
-					const int y = mapping.second->QY();
-					sf::Color cCol = mapping.second->QIsOnFire() ? COLOR_FIRE : mapping.second->QColor();
-					if (IsParticleOnEdge(x, y))
+					if (IsPointWithinSimulation(aiX, aiY))
 					{
-						cCol.a = 200;
+						Particle* pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]).get();
+						if (pParticle)
+						{
+							pParticle->IncreaseTemperature(aiTempStep);
+						}
 					}
-					arCanvas.setPixel(x, y, cCol);
-				}
+				};
+
+				const int iIgnitionStep = mapping.second->QTemperature() * 0.05f;	// TO-DO: Replace this with a value in the particle itself
+				HeatSurroundingsFunctor(x + 1, y, iIgnitionStep);
+				HeatSurroundingsFunctor(x - 1, y, iIgnitionStep);
+				HeatSurroundingsFunctor(x, y + 1, iIgnitionStep);
+				HeatSurroundingsFunctor(x, y - 1, iIgnitionStep);
+			}
+
+			sf::Color cCol = mapping.second->QIsOnFire() ? COLOR_FIRE : mapping.second->QColor();
+			if (IsParticleOnEdge(x, y))
+			{
+				cCol.a = 200;
+			}
+			arCanvas.setPixel(x, y, cCol);
+
+			if (mapping.second->QHasLifetimeExpired())
+			{
+				expiredParticleIDs.push_back(mapping.first);
+				mapping.second.reset();
 			}
 		}
 		++iPixelsVisitted_Total;	// Pre-chunk pixel visits
 		++iPixelsVisitted_PreChunk;
 	}
+#ifdef USE_THREADED_CHUNKS
 	for (int i = 0; i < chunkCount; ++i)
 	{
 		bChunksNeedUpdating[i] = false;
 	}
 
 	// Spin up chunk update threads
-	ChunkTickLock.lock();
 	std::thread worker1([this, &arCanvas, &expiredParticleIDs]() { TickChunk(&chunkParticleMaps[0], &arCanvas, &expiredParticleIDs); });
 	++iChunksVisitted;
 	std::thread worker2([this, &arCanvas, &expiredParticleIDs]() { TickChunk(&chunkParticleMaps[1], &arCanvas, &expiredParticleIDs); });
@@ -183,6 +225,7 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 		}
 		chunkParticleMaps[i].clear();
 	}
+#endif
 
 	// After a tick, itterate over the particle map, and allow them to be updated again
 	for (std::pair<const int, std::shared_ptr<Particle>> mapping : particleMap)
@@ -229,7 +272,6 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 			++iPixelsVisitted_ExpiredCleanup;
 		}
 	}
-	ChunkTickLock.unlock();
 	expiredParticleIDs.clear();
 }
 
@@ -242,6 +284,7 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 /// <remarks>Note: this is not currently considered thread safe. If these were to be turned into threads as-is, we'd have each thread accessing the particleIDMap, and the hashmap, all the time.</remarks>
 void ParticleSimulation::TickChunk(std::unordered_map<int, std::shared_ptr<Particle>>* amParticleMap, sf::Image* arCanvas, std::vector<int>* arExpiredIDs)
 {
+#ifdef USE_THREADED_CHUNKS
 	if (!amParticleMap || !arCanvas || !arExpiredIDs)
 	{
 		return;
@@ -309,6 +352,7 @@ void ParticleSimulation::TickChunk(std::unordered_map<int, std::shared_ptr<Parti
 		++iPixelsVisitted_Total; // Chunk tick pixel visits
 		++iPixelsVisitted_ChunkTick;
 	}
+#endif
 }
 
 /// <summary>
@@ -526,8 +570,11 @@ SimulationSnapshot ParticleSimulation::CreateSimulationSnapshot()
 {
 	SimulationSnapshot retVal = SimulationSnapshot();
 
+
+#ifdef USE_THREADED_CHUNKS
 	ChunkTickLock.lock();
 	ParticleMapLock.lock();
+#endif
 	for (std::pair<int, std::shared_ptr<Particle>> mapping : particleMap)
 	{
 		if (mapping.second)
@@ -540,8 +587,10 @@ SimulationSnapshot ParticleSimulation::CreateSimulationSnapshot()
 			retVal.cachedParticles.push_back(snap);
 		}
 	}
+#ifdef USE_THREADED_CHUNKS
 	ParticleMapLock.unlock();
 	ChunkTickLock.unlock();
+#endif
 
 	std::cout << "Snapshot taken!\n";
 	return retVal;
@@ -567,7 +616,9 @@ void ParticleSimulation::ResetSimulation()
 /// <remarks>Acquires ParticleMapLock to ensure security when resetting the particle map.</remarks>
 void ParticleSimulation::ResetSimulation(SimulationSnapshot asSnapshot)
 {
+#ifdef USE_THREADED_CHUNKS
 	ParticleMapLock.lock();
+#endif
 	// First, release all smart pointers in the existing particle map
 	for (std::pair<int, std::shared_ptr<Particle>> mapping : particleMap)
 	{
@@ -595,7 +646,9 @@ void ParticleSimulation::ResetSimulation(SimulationSnapshot asSnapshot)
 	}
 
 	std::cout << "Snapshot applied!\n";
+#ifdef USE_THREADED_CHUNKS
 	ParticleMapLock.unlock();
+#endif
 }
 
 /// <summary>

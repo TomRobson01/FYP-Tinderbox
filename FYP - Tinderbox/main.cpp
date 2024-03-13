@@ -1,14 +1,21 @@
 #include <iostream>
 #include <thread>
 
+#include <SFML/Graphics.hpp>
+
 #include "ParticleSimulation.h"
 #include "PerformanceReporter.h"
 #include "SimulationSerializer.h"
+#include "UIButton.h"
 
 #define SCREEN_RESOLUTION 900
 #define CANVAS_SCALE_FACTOR ((float)SCREEN_RESOLUTION / (float)simulationResolution)
 
 #define SCREEN_CLEAR_COLOUR sf::Color(13,14,15,255)
+
+#define UI_TOOLBAR_X_PADDING 16
+#define UI_TOOLBAR_Y_PADDING 38
+#define UI_TOOLBAR_Y_EDGE_PADDING 16
 
 #define DEFINE_PARTICLE_MAPPING(NUM, TYPE, MESSAGE) \
 	case NUM:\
@@ -44,7 +51,23 @@ namespace Painting
 	int iBrushSize = 3;
 };
 
-bool bDoOnce = false;
+
+enum class TOOLBAR_BUTTONS : uint8_t
+{
+	PAINT,
+	IGNITE,
+	WOOD,
+	STONE,
+	METAL,
+	SAND,
+	COAL,
+	LEAVES,
+	STEAM,
+	SMOKE,
+	WATER,
+	COUNT
+};
+UIButton* ToolBar[static_cast<int>(TOOLBAR_BUTTONS::COUNT)];
 
 int main()
 {
@@ -56,9 +79,10 @@ int main()
 	std::cout << "1-0: Element bindings" << std::endl;
 	std::cout << "F1: Show performance metrics" << std::endl;
 	std::cout << "F2: Show chunk boundaries" << std::endl;
-	std::cout << "F10: Brush size 1" << std::endl;
-	std::cout << "F11: Brush size 3" << std::endl;
-	std::cout << "F12: Brush size 5" << std::endl;
+	std::cout << "F9: Brush size 1" << std::endl;
+	std::cout << "F10: Brush size 3" << std::endl;
+	std::cout << "F11: Brush size 5" << std::endl;
+	std::cout << "F12: Brush size 7" << std::endl;
 	std::cout << "\n" << std::endl;
 
 	sf::RenderWindow wWindow(sf::VideoMode(SCREEN_RESOLUTION, SCREEN_RESOLUTION), "Tinderbox");
@@ -82,6 +106,70 @@ int main()
 	DEFINE_DEBUG_STAT_TEXT(ChunkVisitsCount, 8, 176, "");
 	DEFINE_DEBUG_STAT_TEXT(BurningParticles, 8, 192, "");
 	// -------------------
+
+	// UI Setup
+	for (int i = 0; i < static_cast<int>(TOOLBAR_BUTTONS::COUNT); ++i)
+	{
+		sf::Vector2f fStartPos = sf::Vector2f(UI_TOOLBAR_X_PADDING, UI_TOOLBAR_Y_EDGE_PADDING + UI_TOOLBAR_Y_PADDING * i);
+		std::string sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Empty_Base.png";
+		std::string sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Empty_Hovered.png";
+
+		switch (static_cast<TOOLBAR_BUTTONS>(i))
+		{
+			// Input tools
+		case TOOLBAR_BUTTONS::PAINT:
+			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Paint_Base.png";
+			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Paint_Hovered.png";
+			break;
+		case TOOLBAR_BUTTONS::IGNITE:
+			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Ignite_Base.png";
+			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Ignite_Hovered.png";
+			break;
+			// Elements
+		case TOOLBAR_BUTTONS::WOOD:
+			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Wood_Base.png";
+			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Wood_Hovered.png";
+			break;
+		case TOOLBAR_BUTTONS::STONE:
+			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Stone_Base.png";
+			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Stone_Hovered.png";
+			break;
+		case TOOLBAR_BUTTONS::METAL:
+			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Metal_Base.png";
+			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Metal_Hovered.png";
+			break;
+		case TOOLBAR_BUTTONS::SAND:
+			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Sand_Base.png";
+			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Sand_Hovered.png";
+			break;
+		case TOOLBAR_BUTTONS::COAL:
+			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Coal_Base.png";
+			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Coal_Hovered.png";
+			break;
+		case TOOLBAR_BUTTONS::LEAVES:
+			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Leaves_Base.png";
+			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Leaves_Hovered.png";
+			break;
+		case TOOLBAR_BUTTONS::STEAM:
+			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Steam_Base.png";
+			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Steam_Hovered.png";
+			break;
+		case TOOLBAR_BUTTONS::SMOKE:
+			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Smoke_Base.png";
+			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Smoke_Hovered.png";
+			break;
+		case TOOLBAR_BUTTONS::WATER:
+			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Water_Base.png";
+			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Water_Hovered.png";
+			break;
+
+		default:
+			break;
+		}
+
+		ToolBar[i] = new UIButton();
+		ToolBar[i]->Initialize(fStartPos, sBasePath, sHoveredPath);
+	}
 
 	clock_t currentTicks;
 	clock_t deltaTicks = clock();
@@ -127,7 +215,15 @@ int main()
 		sf::Image imCanvas;
 		imCanvas.create(simulationResolution, simulationResolution, SCREEN_CLEAR_COLOUR);
 
+		// TICKS
+		// MAIN TICK
 		ParticleSimulation::QInstance().Tick(imCanvas);
+
+		// UI TICK
+		for (int i = 0; i < static_cast<int>(TOOLBAR_BUTTONS::COUNT); ++i)
+		{
+			ToolBar[i]->Tick(sf::Mouse::getPosition(wWindow));
+		}
 
 		// Convert image to texture to be applied to a sprite
 		sf::Texture tCanvasTexture;
@@ -138,8 +234,59 @@ int main()
 		sCanvasSprite.setTexture(tCanvasTexture);
 		sCanvasSprite.setScale(CANVAS_SCALE_FACTOR, CANVAS_SCALE_FACTOR);
 
-		// Draw our canvas, and render the window
+		// ---- DRAW BEGINS ----
+		// Simulation always draws first
 		wWindow.draw(sCanvasSprite);
+
+		// Cursor Bounds
+		// Lower Line
+		{
+			sf::Vector2i mousePos = sf::Mouse::getPosition(wWindow);
+			sf::Vertex vLine[2];
+			vLine[0].position = sf::Vector2f(mousePos.x - Painting::iBrushSize, mousePos.y + Painting::iBrushSize);
+			vLine[0].color = sf::Color::White;
+			vLine[1].position = sf::Vector2f(mousePos.x + Painting::iBrushSize, mousePos.y + Painting::iBrushSize);
+			vLine[1].color = sf::Color::White;
+			wWindow.draw(vLine, 2, sf::Lines);
+		}
+		// Upper Line
+		{
+			sf::Vector2i mousePos = sf::Mouse::getPosition(wWindow);
+			sf::Vertex vLine[2];
+			vLine[0].position = sf::Vector2f(mousePos.x - Painting::iBrushSize, mousePos.y - Painting::iBrushSize);
+			vLine[0].color = sf::Color::White;
+			vLine[1].position = sf::Vector2f(mousePos.x + Painting::iBrushSize, mousePos.y - Painting::iBrushSize);
+			vLine[1].color = sf::Color::White;
+			wWindow.draw(vLine, 2, sf::Lines);
+		}
+		// Left Line
+		{
+			sf::Vector2i mousePos = sf::Mouse::getPosition(wWindow);
+			sf::Vertex vLine[2];
+			vLine[0].position = sf::Vector2f(mousePos.x - Painting::iBrushSize, mousePos.y - Painting::iBrushSize);
+			vLine[0].color = sf::Color::White;
+			vLine[1].position = sf::Vector2f(mousePos.x - Painting::iBrushSize, mousePos.y + Painting::iBrushSize);
+			vLine[1].color = sf::Color::White;
+			wWindow.draw(vLine, 2, sf::Lines);
+		}
+		// Right Line
+		{
+			sf::Vector2i mousePos = sf::Mouse::getPosition(wWindow);
+			sf::Vertex vLine[2];
+			vLine[0].position = sf::Vector2f(mousePos.x + Painting::iBrushSize, mousePos.y - Painting::iBrushSize);
+			vLine[0].color = sf::Color::White;
+			vLine[1].position = sf::Vector2f(mousePos.x + Painting::iBrushSize, mousePos.y + Painting::iBrushSize);
+			vLine[1].color = sf::Color::White;
+			wWindow.draw(vLine, 2, sf::Lines);
+		}
+
+		// UI 
+		for (int i = 0; i < static_cast<int>(TOOLBAR_BUTTONS::COUNT); ++i)
+		{
+			wWindow.draw(*ToolBar[i]);
+		}
+
+		// Debug metrics
 		if (DebugToggles::QInstance().bShowPerformanceStats)
 		{
 			wWindow.draw(FPSCount);
@@ -156,6 +303,7 @@ int main()
 			wWindow.draw(ChunkVisitsCount);
 			wWindow.draw(BurningParticles);
 		}
+		// Chunk lines
 		if (DebugToggles::QInstance().bShowChunkBoundaries)
 		{
 			for (int x = 0; x < SCREEN_RESOLUTION; x += (SCREEN_RESOLUTION / chunkCount))
@@ -168,6 +316,7 @@ int main()
 				wWindow.draw(vLine, 2, sf::Lines);
 			}
 		}
+		// ---- DRAW ENDS ----
 		wWindow.display();
 		// ---- RENDER ENDS ----
 
@@ -182,7 +331,74 @@ int main()
 
 				// Input events
 				// Toggle paint mode
-				case sf::Event::MouseButtonPressed:
+				case sf::Event::MouseButtonPressed:	
+				{
+					// First, check our UI buttons
+					bool bClicked = false;
+					for (int i = 0; i < static_cast<int>(TOOLBAR_BUTTONS::COUNT); ++i)
+					{
+						if (ToolBar[i]->OnClick([&i]()
+							{
+								switch (static_cast<TOOLBAR_BUTTONS>(i))
+								{
+									// Input tools
+								case TOOLBAR_BUTTONS::PAINT:
+									Painting::bIgniting = false;
+									break;
+								case TOOLBAR_BUTTONS::IGNITE:
+									Painting::bIgniting = true;
+									break;
+									// Elements
+								case TOOLBAR_BUTTONS::WOOD:
+									Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::WOOD;
+									Painting::bIgniting = false;
+									break;
+								case TOOLBAR_BUTTONS::STONE:
+									Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::ROCK;
+									Painting::bIgniting = false;
+									break;
+								case TOOLBAR_BUTTONS::METAL:
+									Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::METAL;
+									Painting::bIgniting = false;
+									break;
+								case TOOLBAR_BUTTONS::SAND:
+									Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::SAND;
+									Painting::bIgniting = false;
+									break;
+								case TOOLBAR_BUTTONS::COAL:
+									Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::COAL;
+									Painting::bIgniting = false;
+									break;
+								case TOOLBAR_BUTTONS::LEAVES:
+									Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::LEAVES;
+									Painting::bIgniting = false;
+									break;
+								case TOOLBAR_BUTTONS::STEAM:
+									Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::STEAM;
+									Painting::bIgniting = false;
+									break;
+								case TOOLBAR_BUTTONS::SMOKE:
+									Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::SMOKE;
+									Painting::bIgniting = false;
+									break;
+								case TOOLBAR_BUTTONS::WATER:
+									Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::WATER;
+									Painting::bIgniting = false;
+									break;
+
+								default:
+									break;
+								}
+							}))
+						{
+							bClicked = true;
+							break;
+						}
+					}
+					if (bClicked) { break; }
+
+
+					// If we didn't click anything, run paint events
 					if (eWinEvent.mouseButton.button == sf::Mouse::Button::Left && !Painting::bErasing)
 					{
 						Painting::bPainting = true;
@@ -193,6 +409,7 @@ int main()
 						std::cout << "Entered erase mode" << std::endl;
 					}
 					break;
+				}
 				case sf::Event::MouseButtonReleased:
 					if (eWinEvent.mouseButton.button == sf::Mouse::Button::Left && !Painting::bErasing)
 					{
@@ -224,17 +441,21 @@ int main()
 							if (!SimulationSerializer::QInstance().LoadSimulation()) { std::cout << "Failed load\n"; }
 							break;
 
-						case sf::Keyboard::F10:
+						case sf::Keyboard::F9:
 							Painting::iBrushSize = 1;
 							std::cout << "Brush size: 1\n";
 							break;
-						case sf::Keyboard::F11:
+						case sf::Keyboard::F10:
 							Painting::iBrushSize = 3;
 							std::cout << "Brush size: 3\n";
 							break;
-						case sf::Keyboard::F12:
+						case sf::Keyboard::F11:
 							Painting::iBrushSize = 5;
 							std::cout << "Brush size: 5\n";
+							break;
+						case sf::Keyboard::F12:
+							Painting::iBrushSize = 7;
+							std::cout << "Brush size: 7\n";
 							break;
 
 						case sf::Keyboard::R:
@@ -274,9 +495,9 @@ int main()
 			{
 				if (Painting::iBrushSize > 1)
 				{
-					for (int x = mousePos.x - Painting::iBrushSize; x < mousePos.x + Painting::iBrushSize; ++x)
+					for (int x = mousePos.x - (Painting::iBrushSize / 2); x < mousePos.x + (Painting::iBrushSize / 2); ++x)
 					{
-						for (int y = mousePos.y - Painting::iBrushSize; y < mousePos.y + Painting::iBrushSize; ++y)
+						for (int y = mousePos.y - (Painting::iBrushSize / 2); y < mousePos.y + (Painting::iBrushSize / 2); ++y)
 						{
 							ParticleSimulation::QInstance().SpawnParticle(x, y, Painting::pCurrentlyPaintingParticle);
 						}

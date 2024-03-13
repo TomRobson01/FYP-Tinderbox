@@ -28,6 +28,7 @@
     <ClCompile Include="ParticleSolid.cpp" />
     <ClCompile Include="PerformanceReporter.cpp" />
     <ClCompile Include="SimulationSerializer.cpp" />
+    <ClCompile Include="UIButton.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Particle.h" />
@@ -38,6 +39,7 @@
     <ClInclude Include="ParticleSolid.h" />
     <ClInclude Include="PerformanceReporter.h" />
     <ClInclude Include="SimulationSerializer.h" />
+    <ClInclude Include="UIButton.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
