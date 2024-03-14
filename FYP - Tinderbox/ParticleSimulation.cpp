@@ -55,10 +55,10 @@
 
 std::unordered_map<PARTICLE_TYPE, SolidProperties>	solidPropertiesMap 
 {
-	//										Ignition Temp | Fuel Consumption | Fuel	  | Colour
-	{PARTICLE_TYPE::ROCK,	SolidProperties(3000,				1,				800,	COLOR_ROCK)},
-	{PARTICLE_TYPE::METAL,	SolidProperties(1000,				1,				1400,	COLOR_METAL)},
-	{PARTICLE_TYPE::WOOD,	SolidProperties(100,				1,				50,		COLOR_WOOD)}
+	//										Ignition Temp | Fuel Consumption | Fuel	  | Colour			| Melting Point		| Melted particle Type	
+	{PARTICLE_TYPE::ROCK,	SolidProperties(3000,				1,				800,	COLOR_ROCK,			-1,				static_cast<uint8_t>(PARTICLE_TYPE::SMOKE))},
+	{PARTICLE_TYPE::METAL,	SolidProperties(1000,				1,				1400,	COLOR_METAL,		-1,				static_cast<uint8_t>(PARTICLE_TYPE::SMOKE)) },
+	{PARTICLE_TYPE::WOOD,	SolidProperties(100,				1,				50,		COLOR_WOOD,			-1,				static_cast<uint8_t>(PARTICLE_TYPE::SMOKE)) }
 };
 std::unordered_map<PARTICLE_TYPE, PowderProperties> powderPropertiesMap
 {
@@ -69,8 +69,8 @@ std::unordered_map<PARTICLE_TYPE, PowderProperties> powderPropertiesMap
 };
 std::unordered_map<PARTICLE_TYPE, LiquidProperties> liquidPropertiesMap
 {
-	//										Ticks to Rest | Extinguish Particle Type | Horizontal Velocity | Vertical Veloctiy | Colour
-	{PARTICLE_TYPE::WATER,	LiquidProperties(1000,			0,							2,						4,				COLOR_WATER)}
+	//										Ticks to Rest | Extinguish Particle Type							| Horizontal Velocity | Vertical Veloctiy | Colour
+	{PARTICLE_TYPE::WATER,	LiquidProperties(1000,			static_cast<uint8_t>(PARTICLE_TYPE::STEAM),				2,						4,				COLOR_WATER)}
 };
 std::unordered_map<PARTICLE_TYPE, GasProperties>	gasPropertiesMap
 {
@@ -244,16 +244,21 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 		{
 			const int x = GetParticleFromMap(aiExpiredID)->QX();
 			const int y = GetParticleFromMap(aiExpiredID)->QY();
+
 			const PARTICLE_TYPE uiDeathParticleType = static_cast<PARTICLE_TYPE>(GetParticleFromMap(aiExpiredID)->QDeathParticleType());
+			bool bCanSpawnDeathParticle = IS_SOLID_CHECK(static_cast<PARTICLE_TYPE>(GetParticleFromMap(aiExpiredID)->QType())) || IS_LIQUID_CHECK(static_cast<PARTICLE_TYPE>(GetParticleFromMap(aiExpiredID)->QType()));
 
 			particleIDMap[x][y] = NULL_PARTICLE_ID;
 
 			// Remove reference from the main and chunk hashmaps
 			particleMap.erase(aiExpiredID);
 
-			if (uiDeathParticleType != PARTICLE_TYPE::NONE)
+			if (bCanSpawnDeathParticle)
 			{
-				SpawnParticle(x, y, uiDeathParticleType);
+				if (uiDeathParticleType != PARTICLE_TYPE::NONE)
+				{
+					SpawnParticle(x, y, uiDeathParticleType);
+				}
 			}
 
 			// Cache any chunks we need to notify as a result of this deletion

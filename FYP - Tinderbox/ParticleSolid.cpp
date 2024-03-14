@@ -1,4 +1,5 @@
 #include "ParticleSolid.h"
+#include <iostream>
 
 /// <summary>
 /// Handles the movement logic for this particle
@@ -16,10 +17,19 @@ void ParticleSolid::HandleMovement()
 /// </summary>
 void ParticleSolid::HandleFireProperties()
 {
+	// Melting
+	if (!QIsOnFire() && pProperties.iMeltingPoint > 0 && temperature >= pProperties.iMeltingPoint && temperature < pProperties.iIgnitionTemperature)
+	{
+		bExpired = true;
+	}
+
+	// Ignition
 	if (temperature >= pProperties.iIgnitionTemperature)
 	{
 		Ignite();
 	}
+
+	// Burning
 	if (QIsOnFire())
 	{
 		temperature = FIRE_TEMP;
@@ -67,4 +77,9 @@ int ParticleSolid::QIgnitionTemperature()
 int ParticleSolid::QFuel()
 {
 	return pProperties.iFuel;
+}
+
+uint8_t ParticleSolid::QDeathParticleType()
+{
+	return bMelted || QFuel() <= 0 ? pProperties.uiMeltedParticleType : 0;
 }

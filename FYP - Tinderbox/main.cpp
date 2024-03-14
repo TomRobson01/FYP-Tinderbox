@@ -54,8 +54,16 @@ namespace Painting
 
 enum class TOOLBAR_BUTTONS : uint8_t
 {
+	SAVE,
+	LOAD,
+	SEPERATOR_A,
 	PAINT,
 	IGNITE,
+	SIZE_1,
+	SIZE_3,
+	SIZE_5,
+	SIZE_7,
+	SEPERATOR_B,
 	WOOD,
 	STONE,
 	METAL,
@@ -116,6 +124,15 @@ int main()
 
 		switch (static_cast<TOOLBAR_BUTTONS>(i))
 		{
+			// Serialization
+		case TOOLBAR_BUTTONS::SAVE:
+			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Save_Base.png";
+			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Save_Hovered.png";
+			break;
+		case TOOLBAR_BUTTONS::LOAD:
+			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Load_Base.png";
+			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Load_Hovered.png";
+			break;
 			// Input tools
 		case TOOLBAR_BUTTONS::PAINT:
 			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Paint_Base.png";
@@ -124,6 +141,22 @@ int main()
 		case TOOLBAR_BUTTONS::IGNITE:
 			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Ignite_Base.png";
 			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Ignite_Hovered.png";
+			break;
+		case TOOLBAR_BUTTONS::SIZE_1:
+			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Brush1_Base.png";
+			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Brush1_Hovered.png";
+			break;
+		case TOOLBAR_BUTTONS::SIZE_3:
+			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Brush3_Base.png";
+			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Brush3_Hovered.png";
+			break;
+		case TOOLBAR_BUTTONS::SIZE_5:
+			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Brush5_Base.png";
+			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Brush5_Hovered.png";
+			break;
+		case TOOLBAR_BUTTONS::SIZE_7:
+			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Brush7_Base.png";
+			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Brush7_Hovered.png";
 			break;
 			// Elements
 		case TOOLBAR_BUTTONS::WOOD:
@@ -161,6 +194,14 @@ int main()
 		case TOOLBAR_BUTTONS::WATER:
 			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Water_Base.png";
 			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Water_Hovered.png";
+			break;
+
+			// Misc.
+		// Shared sprite - intentional fallthrough
+		case TOOLBAR_BUTTONS::SEPERATOR_A:
+		case TOOLBAR_BUTTONS::SEPERATOR_B:
+			sBasePath = "Assets\\Sprites\\UI\\TB_Seperator.png";
+			sHoveredPath = "Assets\\Sprites\\UI\\TB_Seperator.png";
 			break;
 
 		default:
@@ -341,12 +382,31 @@ int main()
 							{
 								switch (static_cast<TOOLBAR_BUTTONS>(i))
 								{
+									// Serialization
+								case TOOLBAR_BUTTONS::SAVE:
+									SimulationSerializer::QInstance().SaveSimulation();
+									break;
+								case TOOLBAR_BUTTONS::LOAD:
+									if (!SimulationSerializer::QInstance().LoadSimulation()) { std::cout << "Failed load\n"; }
+									break;
 									// Input tools
 								case TOOLBAR_BUTTONS::PAINT:
 									Painting::bIgniting = false;
 									break;
 								case TOOLBAR_BUTTONS::IGNITE:
 									Painting::bIgniting = true;
+									break;
+								case TOOLBAR_BUTTONS::SIZE_1:
+									Painting::iBrushSize = 1;
+									break;
+								case TOOLBAR_BUTTONS::SIZE_3:
+									Painting::iBrushSize = 3;
+									break;
+								case TOOLBAR_BUTTONS::SIZE_5:
+									Painting::iBrushSize = 5;
+									break;
+								case TOOLBAR_BUTTONS::SIZE_7:
+									Painting::iBrushSize = 7;
 									break;
 									// Elements
 								case TOOLBAR_BUTTONS::WOOD:
@@ -512,7 +572,20 @@ int main()
 		if (Painting::bErasing)
 		{
 			const sf::Vector2i mousePos = Painting::WorldToSimulationSpaceCoords(sf::Mouse::getPosition(wWindow));
-			ParticleSimulation::QInstance().DestroyParticle(mousePos.x, mousePos.y);
+			if (Painting::iBrushSize > 1)
+			{
+				for (int x = mousePos.x - (Painting::iBrushSize / 2); x < mousePos.x + (Painting::iBrushSize / 2); ++x)
+				{
+					for (int y = mousePos.y - (Painting::iBrushSize / 2); y < mousePos.y + (Painting::iBrushSize / 2); ++y)
+					{
+						ParticleSimulation::QInstance().DestroyParticle(x, y);
+					}
+				}
+			}
+			else
+			{
+				ParticleSimulation::QInstance().DestroyParticle(mousePos.x, mousePos.y);
+			}
 		}
 
 		// FPS calculation
