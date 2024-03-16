@@ -34,6 +34,9 @@
 #define SET_DEBUG_STAT_TEXT_VAL(NAME, VAL, TEXT) \
 	NAME.setString(std::to_string(VAL) + " " + TEXT);
 
+sf::Texture tCanvasTexture;
+sf::Image* imCanvas;
+
 namespace Painting
 {
 	sf::Vector2i WorldToSimulationSpaceCoords(const sf::Vector2i avInVal)
@@ -44,18 +47,33 @@ namespace Painting
 		return retval;
 	}
 
-	PARTICLE_TYPE pCurrentlyPaintingParticle = PARTICLE_TYPE::SOLID;
+	PARTICLE_TYPE pCurrentlyPaintingParticle = PARTICLE_TYPE::WOOD;
 	bool bPainting = false;
 	bool bErasing = false;
 	bool bIgniting = false;
 	int iBrushSize = 3;
 };
 
+namespace LandingPage
+{
+	sf::Texture		imLogoTexture;
+	sf::Sprite*		spLogoSprite;
+	sf::Vector2f	vLogoOffset = sf::Vector2f(0, 0);
+
+	sf::Text*		txLandingScreenGreetingText;
+	sf::Vector2f	vGreetingOffset = sf::Vector2f(0,140);
+
+	std::string sLandingScreenGreetingStr = "-CONTROLS-\nLMB to Paint\nRMB to Erase\n  R to Reset";
+	float fGreetingSize = 0.8f;
+
+	bool bShowLandingPage = true;
+};
 
 enum class TOOLBAR_BUTTONS : uint8_t
 {
 	SAVE,
 	LOAD,
+	RESET,
 	SEPERATOR_A,
 	PAINT,
 	IGNITE,
@@ -73,6 +91,7 @@ enum class TOOLBAR_BUTTONS : uint8_t
 	STEAM,
 	SMOKE,
 	WATER,
+	LAVA,
 	COUNT
 };
 UIButton* ToolBar[static_cast<int>(TOOLBAR_BUTTONS::COUNT)];
@@ -116,6 +135,27 @@ int main()
 	// -------------------
 
 	// UI Setup
+	// landing screen
+	if (LandingPage::imLogoTexture.loadFromFile("Assets\\Sprites\\UI\\Logo v2.png"))
+	{
+		LandingPage::spLogoSprite = new sf::Sprite;
+		LandingPage::spLogoSprite->setTexture(LandingPage::imLogoTexture);
+		LandingPage::spLogoSprite->setOrigin(LandingPage::imLogoTexture.getSize().x / 2, LandingPage::imLogoTexture.getSize().y / 2);
+		LandingPage::spLogoSprite->setPosition(sf::Vector2f(SCREEN_RESOLUTION / 2, SCREEN_RESOLUTION / 2) + LandingPage::vLogoOffset);
+
+		LandingPage::txLandingScreenGreetingText = new sf::Text;
+		LandingPage::txLandingScreenGreetingText->setFont(fFont);
+		LandingPage::txLandingScreenGreetingText->setString(LandingPage::sLandingScreenGreetingStr);
+		LandingPage::txLandingScreenGreetingText->setOrigin(LandingPage::txLandingScreenGreetingText->getLocalBounds().width / 2, LandingPage::txLandingScreenGreetingText->getLocalBounds().height / 2);
+		LandingPage::txLandingScreenGreetingText->setPosition(sf::Vector2f(SCREEN_RESOLUTION / 2, SCREEN_RESOLUTION / 2) + LandingPage::vGreetingOffset);
+		LandingPage::txLandingScreenGreetingText->setScale(LandingPage::fGreetingSize, LandingPage::fGreetingSize);
+	}
+	else
+	{
+		LandingPage::bShowLandingPage = false;
+	}
+
+	// toolbar
 	for (int i = 0; i < static_cast<int>(TOOLBAR_BUTTONS::COUNT); ++i)
 	{
 		sf::Vector2f fStartPos = sf::Vector2f(UI_TOOLBAR_X_PADDING, UI_TOOLBAR_Y_EDGE_PADDING + UI_TOOLBAR_Y_PADDING * i);
@@ -218,6 +258,8 @@ int main()
 	int iTicksPerPerfCapture = 100;
 	int iTicksUntilPerfCapture = iTicksPerPerfCapture;
 
+	imCanvas = new sf::Image;
+
 	while (wWindow.isOpen())
 	{
 		currentTicks = clock();
@@ -253,12 +295,11 @@ int main()
 		// Create our canvas image
 		// We need an sf::Image as that provides the easiest access to an array of pixel data
 		// This single image is then scaled up to fill the screen
-		sf::Image imCanvas;
-		imCanvas.create(simulationResolution, simulationResolution, SCREEN_CLEAR_COLOUR);
+		imCanvas->create(simulationResolution, simulationResolution, SCREEN_CLEAR_COLOUR);
 
 		// TICKS
 		// MAIN TICK
-		ParticleSimulation::QInstance().Tick(imCanvas);
+		bool bRefreshCanvas = ParticleSimulation::QInstance().Tick(*imCanvas);
 
 		// UI TICK
 		for (int i = 0; i < static_cast<int>(TOOLBAR_BUTTONS::COUNT); ++i)
@@ -267,8 +308,10 @@ int main()
 		}
 
 		// Convert image to texture to be applied to a sprite
-		sf::Texture tCanvasTexture;
-		tCanvasTexture.loadFromImage(imCanvas);
+		if (bRefreshCanvas)
+		{
+			tCanvasTexture.loadFromImage(*imCanvas);
+		}
 
 		// Create a sprite, apply the canvas texture
 		sf::Sprite sCanvasSprite;
@@ -322,9 +365,16 @@ int main()
 		}
 
 		// UI 
+		// Toolbar
 		for (int i = 0; i < static_cast<int>(TOOLBAR_BUTTONS::COUNT); ++i)
 		{
 			wWindow.draw(*ToolBar[i]);
+		}
+		// Landing page
+		if (LandingPage::bShowLandingPage)
+		{
+			wWindow.draw(*LandingPage::spLogoSprite);
+			wWindow.draw(*LandingPage::txLandingScreenGreetingText);
 		}
 
 		// Debug metrics
@@ -374,6 +424,8 @@ int main()
 				// Toggle paint mode
 				case sf::Event::MouseButtonPressed:	
 				{
+					LandingPage::bShowLandingPage = false;
+
 					// First, check our UI buttons
 					bool bClicked = false;
 					for (int i = 0; i < static_cast<int>(TOOLBAR_BUTTONS::COUNT); ++i)
@@ -388,6 +440,10 @@ int main()
 									break;
 								case TOOLBAR_BUTTONS::LOAD:
 									if (!SimulationSerializer::QInstance().LoadSimulation()) { std::cout << "Failed load\n"; }
+									break;
+								case TOOLBAR_BUTTONS::RESET:
+									ParticleSimulation::QInstance().ResetSimulation();
+									LandingPage::bShowLandingPage = true;
 									break;
 									// Input tools
 								case TOOLBAR_BUTTONS::PAINT:
@@ -445,6 +501,10 @@ int main()
 									Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::WATER;
 									Painting::bIgniting = false;
 									break;
+								case TOOLBAR_BUTTONS::LAVA:
+									Painting::pCurrentlyPaintingParticle = PARTICLE_TYPE::LAVA;
+									Painting::bIgniting = false;
+									break;
 
 								default:
 									break;
@@ -484,6 +544,8 @@ int main()
 				// Keyboard events
 				case sf::Event::KeyPressed:
 				{
+					LandingPage::bShowLandingPage = false;
+
 					switch (eWinEvent.key.code)
 					{
 						case sf::Keyboard::F1:
@@ -520,6 +582,7 @@ int main()
 
 						case sf::Keyboard::R:
 							ParticleSimulation::QInstance().ResetSimulation();
+							LandingPage::bShowLandingPage = true;
 							break;
 
 						// Set paint materials
@@ -547,21 +610,28 @@ int main()
 		if (Painting::bPainting)
 		{
 			const sf::Vector2i mousePos = Painting::WorldToSimulationSpaceCoords(sf::Mouse::getPosition(wWindow));
-			if (Painting::bIgniting)
+			if (Painting::iBrushSize > 1)
 			{
-				ParticleSimulation::QInstance().IgniteParticle(mousePos.x, mousePos.y);
-			}
-			else 
-			{
-				if (Painting::iBrushSize > 1)
+				for (int x = mousePos.x - (Painting::iBrushSize / 2); x < mousePos.x + (Painting::iBrushSize / 2); ++x)
 				{
-					for (int x = mousePos.x - (Painting::iBrushSize / 2); x < mousePos.x + (Painting::iBrushSize / 2); ++x)
+					for (int y = mousePos.y - (Painting::iBrushSize / 2); y < mousePos.y + (Painting::iBrushSize / 2); ++y)
 					{
-						for (int y = mousePos.y - (Painting::iBrushSize / 2); y < mousePos.y + (Painting::iBrushSize / 2); ++y)
+						if (Painting::bIgniting)
+						{
+							ParticleSimulation::QInstance().IgniteParticle(x, y);
+						}
+						else
 						{
 							ParticleSimulation::QInstance().SpawnParticle(x, y, Painting::pCurrentlyPaintingParticle);
 						}
 					}
+				}
+			}
+			else
+			{
+				if (Painting::bIgniting)
+				{
+					ParticleSimulation::QInstance().IgniteParticle(mousePos.x, mousePos.y);
 				}
 				else
 				{
@@ -590,14 +660,17 @@ int main()
 
 		// FPS calculation
 		deltaTicks = clock() - currentTicks;
-		ifps = deltaTicks > 0 ? CLOCKS_PER_SEC / deltaTicks : 0;
-
-		// Perf capture
-		--iTicksUntilPerfCapture;
-		if (iTicksUntilPerfCapture <= 0)
+		if (bRefreshCanvas)
 		{
-			iTicksUntilPerfCapture = iTicksPerPerfCapture;
-			PerformanceReporter::QInstance().RegisterData(PerfDatum(ifps, deltaTicks, iParticleCount, iactiveParticles, iparticleVisitsTotal, ichunkVisits));
+			ifps = deltaTicks > 0 ? CLOCKS_PER_SEC / deltaTicks : 0;
+
+			// Perf capture
+			--iTicksUntilPerfCapture;
+			if (iTicksUntilPerfCapture <= 0)
+			{
+				iTicksUntilPerfCapture = iTicksPerPerfCapture;
+				PerformanceReporter::QInstance().RegisterData(PerfDatum(ifps, deltaTicks, iParticleCount, iactiveParticles, iparticleVisitsTotal, ichunkVisits));
+			}
 		}
 	}
 	PerformanceReporter::QInstance().DumpData();

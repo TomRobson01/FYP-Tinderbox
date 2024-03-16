@@ -7,6 +7,7 @@
 
 #include <SFML/Graphics.hpp>
 
+#include <ctime>
 #include <cmath>
 #include <iostream>
 #include <mutex>
@@ -17,6 +18,9 @@
 #ifdef USE_THREADED_CHUNKS
 #define USE_THREADED_CHUNKS
 #endif
+
+constexpr float fFixedTickRate = 60.0f;											// Number of ticks per second
+constexpr float fFixedTickInterval = (1.0f / fFixedTickRate) * CLOCKS_PER_SEC;	// Time between ticks
 
 #define CREATE_PARTICLE_PTR(T, PT, PP) \
 	std::make_shared<T>(iUniqueParticleID, aiX, aiY, static_cast<uint8_t>(PT), PP)
@@ -39,38 +43,40 @@
 #define COLOR_COAL		sf::Color(43,	41,		40,		255)
 #define COLOR_LEAVES	sf::Color(37,	59,		35,		255)
 #define COLOR_WATER		sf::Color(54,	122,	156,	255)
+#define COLOR_LAVA		sf::Color(227,	157,	7,		255)
 #define COLOR_STEAM		sf::Color(210,	211,	212,	255)
 #define COLOR_SMOKE		sf::Color(62,	65,		66,		255)
 #define COLOR_FIRE		RANDOM_BOOL ? sf::Color(227, 102, 7, 255) : sf::Color(227, 157, 7, 255)
 #define COLOR_CHUNK		sf::Color(53,	58,		79,		255)
 
 #define IS_SOLID_CHECK(TYPE) \
-	TYPE > PARTICLE_TYPE::SOLID && TYPE < PARTICLE_TYPE::GAS
+	(TYPE > PARTICLE_TYPE::SOLID && TYPE < PARTICLE_TYPE::GAS)
 #define IS_POWDER_CHECK(TYPE) \
-	TYPE > PARTICLE_TYPE::POWDER && TYPE < PARTICLE_TYPE::SOLID
+	(TYPE > PARTICLE_TYPE::POWDER && TYPE < PARTICLE_TYPE::SOLID)
 #define IS_LIQUID_CHECK(TYPE) \
-	TYPE > PARTICLE_TYPE::LIQUID && TYPE < PARTICLE_TYPE::COUNT
+	(TYPE > PARTICLE_TYPE::LIQUID && TYPE < PARTICLE_TYPE::COUNT)
 #define IS_GAS_CHECK(TYPE) \
-	TYPE > PARTICLE_TYPE::GAS && TYPE < PARTICLE_TYPE::LIQUID
+	(TYPE > PARTICLE_TYPE::GAS && TYPE < PARTICLE_TYPE::LIQUID)
 
 std::unordered_map<PARTICLE_TYPE, SolidProperties>	solidPropertiesMap 
 {
 	//										Ignition Temp | Fuel Consumption | Fuel	  | Colour			| Melting Point		| Melted particle Type	
-	{PARTICLE_TYPE::ROCK,	SolidProperties(3000,				1,				800,	COLOR_ROCK,			-1,				static_cast<uint8_t>(PARTICLE_TYPE::SMOKE))},
-	{PARTICLE_TYPE::METAL,	SolidProperties(1000,				1,				1400,	COLOR_METAL,		-1,				static_cast<uint8_t>(PARTICLE_TYPE::SMOKE)) },
+	{PARTICLE_TYPE::ROCK,	SolidProperties(3000,				1,				400,	COLOR_ROCK,			-1,				static_cast<uint8_t>(PARTICLE_TYPE::LAVA))},
+	{PARTICLE_TYPE::METAL,	SolidProperties(1000,				1,				700,	COLOR_METAL,		-1,				static_cast<uint8_t>(PARTICLE_TYPE::SMOKE)) },
 	{PARTICLE_TYPE::WOOD,	SolidProperties(100,				1,				50,		COLOR_WOOD,			-1,				static_cast<uint8_t>(PARTICLE_TYPE::SMOKE)) }
 };
 std::unordered_map<PARTICLE_TYPE, PowderProperties> powderPropertiesMap
 {
 	//											Ticks to Rest | Ignition Temp | Fuel Consumption | Fuel | Horizontal Velocity | Vertical Veloctiy	| Colour
-	{PARTICLE_TYPE::SAND,		PowderProperties(1000,			100,			1,					100,		1,					1,					COLOR_SAND)},
-	{PARTICLE_TYPE::COAL,		PowderProperties(1000,			1000,			0,					10000,		1,					1,					COLOR_COAL)},
-	{PARTICLE_TYPE::LEAVES,		PowderProperties(1000,			5,				1,					10,			1,					1,					COLOR_LEAVES)}
+	{PARTICLE_TYPE::SAND,		PowderProperties(100,			100,			1,					100,		1,					2,					COLOR_SAND)},
+	{PARTICLE_TYPE::COAL,		PowderProperties(100,			1000,			0,					1000,		1,					2,					COLOR_COAL)},
+	{PARTICLE_TYPE::LEAVES,		PowderProperties(100,			5,				1,					10,			1,					3,					COLOR_LEAVES)}
 };
 std::unordered_map<PARTICLE_TYPE, LiquidProperties> liquidPropertiesMap
 {
-	//										Ticks to Rest | Extinguish Particle Type							| Horizontal Velocity | Vertical Veloctiy | Colour
-	{PARTICLE_TYPE::WATER,	LiquidProperties(1000,			static_cast<uint8_t>(PARTICLE_TYPE::STEAM),				2,						4,				COLOR_WATER)}
+	//										Ticks to Rest	| Extinguish Particle Type							| Should Extinguish	| Heat Surroundings		| Horizontal Velocity | Vertical Veloctiy | Colour			| Freezing Temp		| Frozen Type										| Cooling rate
+	{PARTICLE_TYPE::WATER,	LiquidProperties(100,				static_cast<uint8_t>(PARTICLE_TYPE::STEAM),				true,			false,					2,						4,				COLOR_WATER,		-25,				0,													0)},
+	{PARTICLE_TYPE::LAVA,	LiquidProperties(100,				static_cast<uint8_t>(PARTICLE_TYPE::STEAM),				false,			true,					2,						2,				COLOR_LAVA,			-25,				static_cast<uint8_t>(PARTICLE_TYPE::ROCK),			100)}
 };
 std::unordered_map<PARTICLE_TYPE, GasProperties>	gasPropertiesMap
 {
@@ -102,7 +108,7 @@ void ForEachParticle(std::unordered_map<int, std::shared_ptr<Particle>> aParticl
 /// Handles the updating and drawing of particles.
 /// </summary>
 /// <param name="arCanvas">Reference to the sf::Image to draw the simulation onto.</param>
-void ParticleSimulation::Tick(sf::Image& arCanvas)
+bool ParticleSimulation::Tick(sf::Image& arCanvas)
 {
 	std::vector<int> expiredParticleIDs;
 	iPixelsVisitted_Total = 0;
@@ -114,73 +120,85 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 	iChunksVisitted = 0;
 	iBurningParticles = 0;
 
+	bool bRunFullTick = false;
+
+	clock_t cDeltaClock = clock() - cClock;
+	bRunFullTick = cDeltaClock > fFixedTickInterval;
+
 	// Pre chunk tick - cache all particles we want a given chunk index to handle
 	for (std::pair<const int, std::shared_ptr<Particle>> mapping : particleMap)
 	{
 		if (mapping.second)
 		{
-			// First, find the chunk this particle belongs to
-			const int iParticleChunkID = GetChunkForPosition(mapping.second->QX());
-			if (bChunksNeedUpdating[iParticleChunkID])
-			{
-				mapping.second->ForceWake();
-			}
-			if (!mapping.second->QResting() && !mapping.second->QHasLifetimeExpired())
-			{
-				chunkParticleMaps[iParticleChunkID].emplace(mapping.second->QID(), mapping.second);
-			}
-
 			const int x = mapping.second->QX();
 			const int y = mapping.second->QY();
 
-			if (!mapping.second->QResting())
+			if (bRunFullTick || bForceFullUpdate)
 			{
-				if (!mapping.second->QHasBeenUpdatedThisTick())
+				cClock = clock();
+				bForceFullUpdate = false;
+
+				// First, find the chunk this particle belongs to
+				const int iParticleChunkID = GetChunkForPosition(mapping.second->QX());
+				if (bChunksNeedUpdating[iParticleChunkID])
 				{
-					mapping.second->HandleMovement();
-					mapping.second->SetHasBeenUpdated(true);
+					mapping.second->ForceWake();
+				}
+				if (!mapping.second->QResting() && !mapping.second->QHasLifetimeExpired())
+				{
+					chunkParticleMaps[iParticleChunkID].emplace(mapping.second->QID(), mapping.second);
+				}
+
+				if (!mapping.second->QResting())
+				{
+					if (!mapping.second->QHasBeenUpdatedThisTick())
+					{
+						mapping.second->HandleMovement();
+						mapping.second->SetHasBeenUpdated(true);
+					}
+				}
+
+				mapping.second->HandleFireProperties();
+
+				// If the particle is on fire, we need to heat the surroundings
+				if (mapping.second->QIsOnFire())
+				{
+					++iBurningParticles;
+					// TO-DO: Not thread safe, improve safety
+					auto HeatSurroundingsFunctor = [this](int aiX, int aiY, int aiTempStep)
+						{
+							if (IsPointWithinSimulation(aiX, aiY))
+							{
+								Particle* pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]).get();
+								if (pParticle)
+								{
+									pParticle->IncreaseTemperature(aiTempStep);
+								}
+							}
+						};
+
+					const int iIgnitionStep = mapping.second->QTemperature() * 0.05f;	// TO-DO: Replace this with a value in the particle itself
+					HeatSurroundingsFunctor(x + 1, y, iIgnitionStep);
+					HeatSurroundingsFunctor(x - 1, y, iIgnitionStep);
+					HeatSurroundingsFunctor(x, y + 1, iIgnitionStep);
+					HeatSurroundingsFunctor(x, y - 1, iIgnitionStep);
+				}
+
+				sf::Color cCol = (mapping.second->QIsOnFire() && !IS_LIQUID_CHECK(static_cast<PARTICLE_TYPE>(mapping.second->QType()))) ? COLOR_FIRE : mapping.second->QColor();
+				if (IsParticleOnEdge(x, y))
+				{
+					cCol.a = 200;
+				}
+				arCanvas.setPixel(x, y, cCol);
+
+				if (mapping.second->QHasLifetimeExpired())
+				{
+					expiredParticleIDs.push_back(mapping.first);
+					mapping.second.reset();
 				}
 			}
-
-			mapping.second->HandleFireProperties();
-
-			// If the particle is on fire, we need to heat the surroundings
-			if (mapping.second->QIsOnFire())
-			{
-				++iBurningParticles;
-				// TO-DO: Not thread safe, improve safety
-				auto HeatSurroundingsFunctor = [this](int aiX, int aiY, int aiTempStep)
-				{
-					if (IsPointWithinSimulation(aiX, aiY))
-					{
-						Particle* pParticle = GetParticleFromMap(particleIDMap[aiX][aiY]).get();
-						if (pParticle)
-						{
-							pParticle->IncreaseTemperature(aiTempStep);
-						}
-					}
-				};
-
-				const int iIgnitionStep = mapping.second->QTemperature() * 0.05f;	// TO-DO: Replace this with a value in the particle itself
-				HeatSurroundingsFunctor(x + 1, y, iIgnitionStep);
-				HeatSurroundingsFunctor(x - 1, y, iIgnitionStep);
-				HeatSurroundingsFunctor(x, y + 1, iIgnitionStep);
-				HeatSurroundingsFunctor(x, y - 1, iIgnitionStep);
-			}
-
-			sf::Color cCol = mapping.second->QIsOnFire() ? COLOR_FIRE : mapping.second->QColor();
-			if (IsParticleOnEdge(x, y))
-			{
-				cCol.a = 200;
-			}
-			arCanvas.setPixel(x, y, cCol);
-
-			if (mapping.second->QHasLifetimeExpired())
-			{
-				expiredParticleIDs.push_back(mapping.first);
-				mapping.second.reset();
-			}
 		}
+			
 		++iPixelsVisitted_Total;	// Pre-chunk pixel visits
 		++iPixelsVisitted_PreChunk;
 	}
@@ -278,6 +296,8 @@ void ParticleSimulation::Tick(sf::Image& arCanvas)
 		}
 	}
 	expiredParticleIDs.clear();
+
+	return bRunFullTick;
 }
 
 /// <summary>
@@ -613,6 +633,7 @@ void ParticleSimulation::ResetSimulation()
 			mapping.second->ForceExpire();
 		}
 	}
+	bForceFullUpdate = true;
 }
 
 /// <summary>

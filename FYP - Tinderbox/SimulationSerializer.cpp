@@ -56,8 +56,9 @@ bool SimulationSerializer::LoadSimulation()
 					// If we get anything other than a number, or a comma, we're loading something we shouldn't... Return out!
 					if (currentLine[i] < 48 || currentLine[i] > 57)
 					{
-						if (currentLine[i] != ',')
+						if (currentLine[i] != ',' && currentLine[i] != '-')
 						{
+							std::cout << "Invalid character (" << currentLine[i] << ")\n";
 							snapshotFile.close();
 							return bRetVal;
 						}
