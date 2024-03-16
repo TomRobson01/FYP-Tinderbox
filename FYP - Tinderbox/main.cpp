@@ -173,6 +173,10 @@ int main()
 			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Load_Base.png";
 			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Load_Hovered.png";
 			break;
+		case TOOLBAR_BUTTONS::RESET:
+			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Reset_Base.png";
+			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Reset_Hovered.png";
+			break;
 			// Input tools
 		case TOOLBAR_BUTTONS::PAINT:
 			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Paint_Base.png";
@@ -234,6 +238,10 @@ int main()
 		case TOOLBAR_BUTTONS::WATER:
 			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Water_Base.png";
 			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Water_Hovered.png";
+			break;
+		case TOOLBAR_BUTTONS::LAVA:
+			sBasePath = "Assets\\Sprites\\UI\\TB_Icon_Lava_Base.png";
+			sHoveredPath = "Assets\\Sprites\\UI\\TB_Icon_Lava_Hovered.png";
 			break;
 
 			// Misc.

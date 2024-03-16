@@ -41,7 +41,7 @@ public:
 	void		Extinguish()						{ if (QIsOnFire()) { eFireState = PARTICLE_FIRE_STATE::NONE; temperature *= 0.5f; } }
 	void		SetHasBeenUpdated(bool abNewVal)	{ bHasBeenUpdatedThisTick = abNewVal; }
 	void		IncreaseTemperature(int aiStep)		{ temperature += aiStep; }
-	void		ForceExpire()						{ bExpired = true; }
+	void		ForceExpire()						{ bExpired = true; uiParticleType = 0; }
 	sf::Color	QColor()							{ return cColor; }
 	int			QX()								{ return x; }
 	int			QY()								{ return y; }
