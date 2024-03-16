@@ -39,16 +39,33 @@ void ParticleLiquid::HandleMovement()
 	y = itargetY;
 	pProperties.iFailedMoveAttempts = 0;
 }
-
+#include <iostream>
 /// <summary>
 /// Handles fire propogation logic for this particle
 /// </summary>
 void ParticleLiquid::HandleFireProperties()
 {
-	if (ParticleSimulation::QInstance().ExtinguishNeighboringParticles(x, y))
+	// Extinguishes neighbors
+	if (pProperties.bShouldExinguish && ParticleSimulation::QInstance().ExtinguishNeighboringParticles(x, y))
 	{
 		pProperties.uiDeathParticleType = static_cast<uint8_t>(PARTICLE_TYPE::STEAM);
 		bExpired = true;
+	}
+
+	// Cooling/freezing behavior
+	if (pProperties.iCoolingRate > 0)
+	{
+		if (iTicksSinceCool > pProperties.iCoolingRate)
+		{
+			iTicksSinceCool = 0;
+			temperature--;
+			if (temperature <= pProperties.iFreezingTemperature)
+			{
+				pProperties.uiDeathParticleType = pProperties.uiFrozenParticleType;
+				bExpired = true;
+			}
+		}
+		++iTicksSinceCool;
 	}
 }
 

@@ -29,6 +29,7 @@ enum class PARTICLE_TYPE : uint8_t
 	SMOKE,
 	LIQUID,
 	WATER,
+	LAVA,
 	COUNT
 };
 
@@ -67,7 +68,12 @@ public:
 		return instance;
 	};
 
-	void Tick(sf::Image& arCanvas);
+	ParticleSimulation()
+	{
+		cClock = clock();
+	}
+
+	bool Tick(sf::Image& arCanvas);
 
 	bool RequestParticleMove(int aiRequesterID, unsigned int aiNewX, unsigned int aiNewY);
 	void SpawnParticle(unsigned int aiX, unsigned int aiY, PARTICLE_TYPE aeParticleType);
@@ -122,6 +128,8 @@ private:
 	int iPixelsVisitted_ExpiredCleanup = 0;
 	int iPixelsVisitted_ChunkTick = 0;
 
+	clock_t cClock;
+	bool bForceFullUpdate = false;
 
 	int iChunksVisitted = 0;
 	int iBurningParticles = 0;

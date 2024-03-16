@@ -38,10 +38,10 @@ public:
 	virtual uint8_t QDeathParticleType() { return 0; }
 
 	// Core
-	void		Extinguish()						{ eFireState = PARTICLE_FIRE_STATE::NONE; temperature *= 0.5f; }
+	void		Extinguish()						{ if (QIsOnFire()) { eFireState = PARTICLE_FIRE_STATE::NONE; temperature *= 0.5f; } }
 	void		SetHasBeenUpdated(bool abNewVal)	{ bHasBeenUpdatedThisTick = abNewVal; }
 	void		IncreaseTemperature(int aiStep)		{ temperature += aiStep; }
-	void		ForceExpire()						{ bExpired = true; }
+	void		ForceExpire()						{ bExpired = true; uiParticleType = 0; }
 	sf::Color	QColor()							{ return cColor; }
 	int			QX()								{ return x; }
 	int			QY()								{ return y; }
@@ -60,7 +60,7 @@ protected:
 	bool bHasBeenUpdatedThisTick = false;
 	unsigned int x, y;
 	sf::Color cColor;
-	unsigned int temperature = 0;
+	int temperature = 0;
 	PARTICLE_FIRE_STATE eFireState = PARTICLE_FIRE_STATE::NONE;
 };
 
