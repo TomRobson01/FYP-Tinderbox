@@ -70,8 +70,10 @@ public:
 
 	ParticleSimulation()
 	{
+		Initialize();
 		cClock = clock();
 	}
+
 
 	bool Tick(sf::Image& arCanvas);
 
@@ -101,6 +103,7 @@ public:
 	int QBurningParticles() { return iBurningParticles; }
 
 protected:
+	void Initialize();
 	void TickChunk(std::unordered_map<int, std::shared_ptr<Particle>>* amParticleMap, sf::Image* arCanvas, std::vector<int>* arExpiredIDs);
 
 	bool IsParticleOnEdge(unsigned int aiX, unsigned int aiY);
@@ -109,6 +112,8 @@ protected:
 	std::shared_ptr<Particle> GetParticleFromMap(int aiID);
 
 	inline int GetChunkForPosition(const int aiX);
+
+	sf::Color GetParticleColor(PARTICLE_TYPE aeParticleType, unsigned int aiX, unsigned int aiY, bool abUseTexture = true);
 
 private:
 	int particleIDMap[simulationResolution][simulationResolution];

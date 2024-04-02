@@ -85,6 +85,8 @@ std::unordered_map<PARTICLE_TYPE, GasProperties>	gasPropertiesMap
 	{PARTICLE_TYPE::SMOKE,	GasProperties(100,		COLOR_SMOKE)}
 };
 
+std::unordered_map<PARTICLE_TYPE, sf::Image*> particleTextureAtlas;
+
 bool bSleepingChunks[chunkCount];
 bool bChunksNeedUpdating[chunkCount] = { false };
 std::unordered_map<int, std::shared_ptr<Particle>> chunkParticleMaps[chunkCount];
@@ -132,6 +134,7 @@ bool ParticleSimulation::Tick(sf::Image& arCanvas)
 		{
 			const int x = mapping.second->QX();
 			const int y = mapping.second->QY();
+			bool bHasMoved = false;
 
 			if (bRunFullTick || bForceFullUpdate)
 			{
@@ -144,10 +147,13 @@ bool ParticleSimulation::Tick(sf::Image& arCanvas)
 				{
 					mapping.second->ForceWake();
 				}
+
+#ifdef USE_THREADED_CHUNKS
 				if (!mapping.second->QResting() && !mapping.second->QHasLifetimeExpired())
 				{
 					chunkParticleMaps[iParticleChunkID].emplace(mapping.second->QID(), mapping.second);
 				}
+#endif
 
 				if (!mapping.second->QResting())
 				{
@@ -155,6 +161,8 @@ bool ParticleSimulation::Tick(sf::Image& arCanvas)
 					{
 						mapping.second->HandleMovement();
 						mapping.second->SetHasBeenUpdated(true);
+
+						bHasMoved = mapping.second->QX() != x || mapping.second->QY() != y;
 					}
 				}
 
@@ -184,12 +192,17 @@ bool ParticleSimulation::Tick(sf::Image& arCanvas)
 					HeatSurroundingsFunctor(x, y - 1, iIgnitionStep);
 				}
 
-				sf::Color cCol = (mapping.second->QIsOnFire() && !IS_LIQUID_CHECK(static_cast<PARTICLE_TYPE>(mapping.second->QType()))) ? COLOR_FIRE : mapping.second->QColor();
-				if (IsParticleOnEdge(x, y))
+				if (!bForceFullUpdate)
 				{
-					cCol.a = 200;
+					const PARTICLE_TYPE eParticleType = static_cast<PARTICLE_TYPE>(mapping.second->QType());
+					sf::Color cCol = (mapping.second->QIsOnFire() && !IS_LIQUID_CHECK(eParticleType)) ? COLOR_FIRE : GetParticleColor(eParticleType, x, y, !bHasMoved);
+					if (IsParticleOnEdge(x, y))
+					{
+						cCol.a = 170;
+					}
+					//sf::Color cCol = mapping.second->QResting() ? sf::Color(180, 180, 180) : sf::Color(255, 255, 255);
+					arCanvas.setPixel(x, y, cCol);
 				}
-				arCanvas.setPixel(x, y, cCol);
 
 				if (mapping.second->QHasLifetimeExpired())
 				{
@@ -203,11 +216,6 @@ bool ParticleSimulation::Tick(sf::Image& arCanvas)
 		++iPixelsVisitted_PreChunk;
 	}
 #ifdef USE_THREADED_CHUNKS
-	for (int i = 0; i < chunkCount; ++i)
-	{
-		bChunksNeedUpdating[i] = false;
-	}
-
 	// Spin up chunk update threads
 	std::thread worker1([this, &arCanvas, &expiredParticleIDs]() { TickChunk(&chunkParticleMaps[0], &arCanvas, &expiredParticleIDs); });
 	++iChunksVisitted;
@@ -251,6 +259,15 @@ bool ParticleSimulation::Tick(sf::Image& arCanvas)
 		mapping.second->SetHasBeenUpdated(false);
 		++iPixelsVisitted_Total;	// Wake particle map visits
 		++iPixelsVisitted_AllowUpdate;
+	}
+
+	// Reset chunks requiring updates
+	if (bRunFullTick)
+	{
+		for (int i = 0; i < chunkCount; ++i)
+		{
+			bChunksNeedUpdating[i] = false;
+		}
 	}
 
 	// During the course of a tick, we check if a particle has expired it's lifetime. These particles are collected in expiredParticleIDs.
@@ -298,6 +315,28 @@ bool ParticleSimulation::Tick(sf::Image& arCanvas)
 	expiredParticleIDs.clear();
 
 	return bRunFullTick;
+}
+
+/// <summary>
+/// Initializes any cached data for the simulation, such as the particle texture atlas
+/// </summary>
+void ParticleSimulation::Initialize()
+{
+	auto TextureLoaderFunctor = [&](PARTICLE_TYPE aeParticleType, std::string asFilepath)
+		{
+			sf::Image* img = new sf::Image();
+			if (img->loadFromFile(asFilepath))
+			{
+				particleTextureAtlas.emplace(aeParticleType, img);
+			}
+		};
+
+	// Load all particle textures into the atlas here
+	TextureLoaderFunctor(PARTICLE_TYPE::COAL, "Assets\\Sprites\\T_Coal.png");
+	TextureLoaderFunctor(PARTICLE_TYPE::SAND, "Assets\\Sprites\\T_Sand.png");
+	TextureLoaderFunctor(PARTICLE_TYPE::LEAVES, "Assets\\Sprites\\T_Leaves.png");
+	TextureLoaderFunctor(PARTICLE_TYPE::WOOD, "Assets\\Sprites\\T_Wood.png");
+	TextureLoaderFunctor(PARTICLE_TYPE::ROCK, "Assets\\Sprites\\T_Stone.png");
 }
 
 /// <summary>
@@ -750,6 +789,61 @@ inline int ParticleSimulation::GetChunkForPosition(const int aiX)
 		break;
 	}
 	return iParticleChunkID;
+}
+
+/// <summary>
+/// Helper function to get the colour for a particle - either a solid colour, or sampled from a texture
+/// </summary>
+/// <param name="aeParticleType">The type of particle we're requesting the colour of</param>
+/// <param name="aiX">The X position of the particle - used for sampling</param>
+/// <param name="aiY">The T position of the particle - used for sampling</param>
+/// <param name="abUseTexture">Whether or not to sample a texture, if applicable for aeParticleType</param>
+sf::Color ParticleSimulation::GetParticleColor(PARTICLE_TYPE aeParticleType, unsigned int aiX, unsigned int aiY, bool abUseTexture)
+{
+	if (particleTextureAtlas.find(aeParticleType) != particleTextureAtlas.end() && abUseTexture)
+	{
+		// If the particle type has a texture loaded, sample that
+		sf::Vector2u uvSize = particleTextureAtlas.at(aeParticleType)->getSize();
+		sf::Vector2u sampleUV = sf::Vector2u(aiX, aiY);
+		if (aiX >= uvSize.x)
+		{
+			sampleUV.x %= uvSize.x;
+		}
+		if (aiY >= uvSize.y)
+		{
+			sampleUV.y %= uvSize.y;
+		}
+
+		return particleTextureAtlas.at(aeParticleType)->getPixel(sampleUV.x, sampleUV.y);
+	}
+	else
+	{
+		// If not, pull from the pre-defined colours
+		switch (aeParticleType)
+		{
+		case PARTICLE_TYPE::SAND:
+			return COLOR_SAND;
+		case PARTICLE_TYPE::COAL:
+			return COLOR_COAL;
+		case PARTICLE_TYPE::LEAVES:
+			return COLOR_LEAVES;
+		case PARTICLE_TYPE::WOOD:
+			return COLOR_WOOD;
+		case PARTICLE_TYPE::METAL:
+			return COLOR_METAL;
+		case PARTICLE_TYPE::ROCK:
+			return COLOR_ROCK;
+		case PARTICLE_TYPE::STEAM:
+			return COLOR_STEAM;
+		case PARTICLE_TYPE::SMOKE:
+			return COLOR_SMOKE;
+		case PARTICLE_TYPE::WATER:
+			return COLOR_WATER;
+		case PARTICLE_TYPE::LAVA:
+			return COLOR_LAVA;
+		}
+	}
+	return sf::Color(255,255,255, 0);	// Transparent
 }
 
 /// <summary>
